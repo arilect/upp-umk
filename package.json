@@ -2,8 +2,12 @@
   "name": "upp-umk",
   "displayName": "Ultimate++ (U++) Integration",
   "description": "Build, run, and manage Ultimate++ (U++) assemblies and packages via the umk command-line tool",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arilect/upp-umk"
+  },
   "publisher": "aris",
   "keywords": [
     "upp",
