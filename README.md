@@ -2,6 +2,8 @@
 
 Build, run, debug, and manage **[Ultimate++](https://ultimatepp.org)** packages in VSCode using the `umk` command-line tool.
 
+[**Install from VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=arilect.upp-umk)
+
 > **Note:** This extension has been tested on Linux, particularly on Arch/CachyOS. Windows and macOS support still needs work.
 
 ## What is U++?
