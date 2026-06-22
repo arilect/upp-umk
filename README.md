@@ -1,12 +1,26 @@
 # Ultimate++ (U++) Integration for VSCode
 
-Build, run, debug, and manage **Ultimate++ packages** in VSCode using the `umk` command-line tool.
+Build, run, debug, and manage **[Ultimate++](https://ultimatepp.org)** packages in VSCode using the `umk` command-line tool.
 
 > **Note:** This extension has been tested on Linux, particularly on Arch/CachyOS. Windows and macOS support still needs work.
 
+## What is U++?
+
+[Ultimate++](https://ultimatepp.org) is a C++ rapid application development framework. It uses a bundle system with assemblies, packages, and `.var` files to organize projects. The `umk` tool is U++'s command-line build utility, which this extension wraps to provide a seamless VSCode experience.
+
+## Features
+
+- **Assembly & package management** — browse, select, and create packages across multiple U++ assemblies from a sidebar UI
+- **Build & run** — build and run your U++ projects with a single click or keyboard shortcut
+- **Debug** — build with debug symbols and launch gdb automatically
+- **IntelliSense** — auto-generate `c_cpp_properties.json` and `compile_commands.json` for accurate code completion
+- **clangd integration** — auto-generate `compile_commands.json` with watch mode, auto-restart clangd
+- **Workspace management** — automatic `.code-workspace` creation and switching per assembly
+- **Configurable** — build methods, flags, link modes, output paths, and more
+
 ## Requirements
 
-- `umk` installed and on `$PATH` (ships with U++ as part of the build tools)
+- [U++](https://github.com/ultimatepp/ultimatepp) with `umk` on `$PATH` (ships as part of the build tools)
 - [Native Debug](https://marketplace.visualstudio.com/items?itemName=webfreak.debug) extension (optional, for VS Code debugger integration)
 - GDB (`sudo apt install gdb`)
 
@@ -192,18 +206,35 @@ OUTPUT = "/path/to/cache/out";
 
 The `UPP` key holds semicolon-separated nest directories used for include path resolution.
 
-## Installation
+## Known Limitations
+
+- **Linux only** for now — Windows and macOS support is planned but not yet tested
+- **U++ required** — `umk` must be installed and available on `$PATH`
+- **GDB required** — debugging needs gdb installed (`sudo apt install gdb` on Debian/Ubuntu, `pacman -S gdb` on Arch)
+
+## Development
 
 ```bash
-cp -r upp-vscode ~/.vscode/extensions/upp-umk
-cd ~/.vscode/extensions/upp-umk
+git clone https://github.com/arilect/upp-umk.git
+cd upp-umk
 npm install
 npm run compile
 ```
 
-To package as a `.vsix`:
+To watch for changes during development:
+
 ```bash
-npm install -g vsce
+npm run watch
+```
+
+To package as a `.vsix`:
+
+```bash
+npm install -g @vscode/vsce
 vsce package
 code --install-extension upp-umk-*.vsix
 ```
+
+## License
+
+[MIT](LICENSE)
