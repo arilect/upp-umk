@@ -2,6 +2,8 @@
 
 Build, run, debug, and manage **Ultimate++ packages** in VSCode using the `umk` command-line tool.
 
+> **Note:** This extension has been tested on Linux, particularly on Arch/CachyOS. Windows and macOS support still needs work.
+
 ## Requirements
 
 - `umk` installed and on `$PATH` (ships with U++ as part of the build tools)
