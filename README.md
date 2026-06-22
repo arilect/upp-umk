@@ -1,6 +1,6 @@
-# Ultimate++ (U++) Integration for VSCode
+# U++ Integration for VSCode
 
-Build, run, debug, and manage **[Ultimate++](https://ultimatepp.org)** packages in VSCode using the `umk` command-line tool.
+Build, run, debug, and manage **[U++](https://ultimatepp.org)** packages in VSCode using the `umk` command-line tool.
 
 [**Install from VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=arilect.upp-umk)
 
@@ -8,7 +8,35 @@ Build, run, debug, and manage **[Ultimate++](https://ultimatepp.org)** packages 
 
 ## What is U++?
 
-[Ultimate++](https://ultimatepp.org) is a C++ rapid application development framework. It uses a bundle system with assemblies, packages, and `.var` files to organize projects. The `umk` tool is U++'s command-line build utility, which this extension wraps to provide a seamless VSCode experience.
+[U++](https://ultimatepp.org) (formerly known as Ultimate++) is a C++ rapid application development framework. It uses a bundle system with assemblies, packages, and `.var` files to organize projects. The `umk` tool is U++'s command-line build utility, which this extension wraps to provide a seamless VSCode experience.
+
+### So what is U++ exactly?
+
+Is it a software framework? Cross-platform? A GUI toolkit? A C++ enhancement? A C++ `std::` library replacement? An IDE (integrated development environment)? Or even a complete web framework? Blazingly fast? Multithreading? Really memory effective? Rapid development? Less code? Integrated icon and form layout designers? Integrated code documentation system? Subpixel graphics? Easy SQL for most databases? OpenGL? Other libraries? Much more?
+
+The short answer is — **yes, to all of those things**.
+
+But then the next natural question appears — why would me or someone else need this mostly unknown thing? Where is the catch? Pros and cons? Especially when there are so many established and/or promising other tools? Developers are spoilt for choice nowadays, aren't they?
+
+Wait — have I not touched software licenses yet? How many of them have all the mentioned features? And how many of them have the very, very permissive licenses for commercial applications? The answer, my friends, is blowing in the wind... Not many.
+
+So more choices and competition is a good thing? This is a principle of capitalism and open source. But every time someone starts and develops a new thing, he/she/they need some time to overcome doubters. For the U++ project, this "some time" is **20 years of improvements**. And I still cannot understand why U++ has not attracted as many developers as it deserves by its design ideas. Moreover, why does it attract a lot of doubting-hating-nonsense opinions when someone mentions U++ on the internet?
+
+### Common objections
+
+**"How do you dare create an alternative to the C++ standard library? With all kinds of containers? And say it is better, faster, and easier to use for GUI widgets? It lowers the popularity of C++!"**
+
+You cannot believe it is not butter, as in a famous advert? This is not about replacing C++ — it is about making C++ development **faster, cleaner, and more productive**. U++ complements the standard library where it falls short, especially in GUI development, build management, and cross-platform abstraction.
+
+**"You claim your library is faster. There are lies, damned lies, and then there are your benchmarks!"**
+
+Yes, maybe. But maybe only `std::unordered_map` has those problems? These opinions really exist.
+
+**"Forcing an IDE on users is a major limitation."**
+
+What? Compare that to Microsoft Windows and Visual Studio — for years. Then came Apple and Xcode. And when someone creates an easier-to-use alternative, some start fires?
+
+But such blame https://www.reddit.com/r/cpp/comments/juiudg/comment/gce8yuz/?utm_source=share&utm_medium=web2x&context=3 inspired me to create this extension!
 
 ## Features
 
