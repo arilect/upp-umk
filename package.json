@@ -1,0 +1,457 @@
+{
+  "name": "upp-umk",
+  "displayName": "Ultimate++ (U++) Integration",
+  "description": "Build, run, and manage Ultimate++ (U++) assemblies and packages via the umk command-line tool",
+  "version": "0.1.0",
+  "publisher": "aris",
+  "keywords": [
+    "upp",
+    "u++",
+    "ultimate++",
+    "ultimatepp",
+    "umk",
+    "c++",
+    "cpp",
+    "build",
+    "compiler"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onCommand:upp.build",
+    "onCommand:upp.run",
+    "onCommand:upp.rebuild",
+    "onCommand:upp.selectAssembly",
+    "onCommand:upp.selectPackage",
+    "onCommand:upp.selectConfig",
+    "onCommand:upp.selectBuildParams",
+    "onCommand:upp.generateCompileCommands",
+    "onCommand:upp.generateClangJson",
+    "onCommand:upp.syncWorkspaces",
+    "onCommand:upp.openHelp",
+    "onCommand:upp.updateIntelliSense",
+    "onCommand:upp.stopRun",
+    "onCommand:upp.selectBuildMethod",
+    "onCommand:upp.selectOutput",
+    "onCommand:upp.newPackage",
+    "onCommand:upp.newAssembly",
+    "onCommand:upp.editBuildMethod",
+    "onCommand:upp.editRunOptions",
+    "onCommand:upp.selectLinkMode",
+    "onCommand:upp.debug",
+    "onCommand:upp.stopDebug",
+    "onCommand:upp.showLogs",
+    "onCommand:upp.openOutputDir",
+    "onCommand:upp.openDebugOutputDir",
+    "workspaceContains:**/*.var"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "upp-sidebar",
+          "title": "Ultimate++ (U++)",
+          "icon": "media/upp.svg"
+        }
+      ]
+    },
+    "views": {
+      "upp-sidebar": [
+        {
+          "id": "upp.stateView",
+          "name": "UPP Build Package",
+          "icon": "$(tools)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "upp.build",
+        "title": "UPP: Build Package",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "upp.run",
+        "title": "UPP: Build & Run Package",
+        "icon": "$(play)"
+      },
+      {
+        "command": "upp.openHelp",
+        "title": "UPP: Help",
+        "icon": "$(question)"
+      },
+      {
+        "command": "upp.rebuild",
+        "title": "UPP: Rebuild All (-a)",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "upp.selectAssembly",
+        "title": "UPP: Select Active Assembly",
+        "icon": "$(add)"
+      },
+      {
+        "command": "upp.selectPackage",
+        "title": "UPP: Select Active Package"
+      },
+      {
+        "command": "upp.selectConfig",
+        "title": "UPP: Select Active Config"
+      },
+      {
+        "command": "upp.updateIntelliSense",
+        "title": "UPP: Update IntelliSense (c_cpp_properties.json)"
+      },
+      {
+        "command": "upp.selectBuildParams",
+        "title": "UPP: Select Build Method & Config"
+      },
+      {
+        "command": "upp.generateCompileCommands",
+        "title": "UPP: Generate compile_commands.json",
+        "icon": "$(json)"
+      },
+      {
+        "command": "upp.stopRun",
+        "title": "UPP: Stop Running Process",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "upp.selectBuildMethod",
+        "title": "UPP: Select Build Method"
+      },
+      {
+        "command": "upp.selectOutput",
+        "title": "UPP: Select Output Path"
+      },
+      {
+        "command": "upp.editDescription",
+        "title": "UPP: Edit Package Description"
+      },
+      {
+        "command": "upp.newPackage",
+        "title": "UPP: New Package",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "upp.newAssembly",
+        "title": "UPP: New Assembly",
+        "icon": "$(add)"
+      },
+      {
+        "command": "upp.editBuildMethod",
+        "title": "UPP: Edit Build Method"
+      },
+      {
+        "command": "upp.selectLinkMode",
+        "title": "UPP: Select Link Mode"
+      },
+      {
+        "command": "upp.editRunOptions",
+        "title": "UPP: Edit Run Options"
+      },
+      {
+        "command": "upp.generateClangJson",
+        "title": "UPP: Generate clang json",
+        "icon": "$(json)"
+      },
+      {
+        "command": "upp.syncWorkspaces",
+        "title": "UPP: Sync Workspaces",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "upp.debug",
+        "title": "UPP: Debug Build & Run",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "upp.stopDebug",
+        "title": "UPP: Stop Debugging",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "upp.showLogs",
+        "title": "UPP: Show Logs"
+      },
+      {
+        "command": "upp.openOutputDir",
+        "title": "UPP: Open Output Directory",
+        "icon": "$(folder-opened)"
+      }
+    ],
+    "configuration": {
+      "title": "Ultimate++ UMK",
+      "properties": {
+        "upp.varDir": {
+          "type": "string",
+          "default": "",
+          "description": "Directory containing U++ .var assembly files. Defaults to ~/.config/u++/theide/ (modern) or ~/.upp/theide/ (legacy)."
+        },
+        "upp.workspacesDir": {
+          "type": "string",
+          "default": "",
+          "description": "Directory containing .code-workspace files. When an assembly is selected, the extension looks for a matching <assemblyName>.code-workspace here, then falls back to any workspace whose folders overlap the assembly nests, then to opening the first nest dir directly."
+        },
+        "upp.umkPath": {
+          "type": "string",
+          "default": "umk",
+          "description": "Path to the umk executable. Defaults to 'umk' (must be on $PATH)."
+        },
+        "upp.buildMethod": {
+          "type": "string",
+          "default": "CLANG",
+          "description": "Build method name (e.g. GCC, CLANG) searched in ~/.config/u++/theide/, or a direct path to a .bm file. umk defaults to CLANG and auto-creates GCC and CLANG on POSIX if they don't exist."
+        },
+        "upp.buildFlags": {
+          "type": "string",
+          "default": "",
+          "description": "Combined build flags without the leading dash (e.g. 'r' for release, 'br' for blitz+release, 'v' for verbose). Default is debug mode with full debug info. The 's' and 'S' flags are controlled by upp.linkMode — do not include them here."
+        },
+        "upp.linkMode": {
+          "type": "string",
+          "enum": ["all-static", "use-shared", "all-shared"],
+          "default": "use-shared",
+          "description": "Library linking mode. 'all-static' = link everything statically. 'use-shared' = use shared libraries (-s). 'all-shared' = use shared and build as shared (-S)."
+        },
+        "upp.configurationFlag": {
+          "type": "string",
+          "default": "",
+          "description": "Compilation +FLAGs passed to umk (e.g. 'GUI,MT'). Passed as +FLAG,FLAG."
+        },
+        "upp.cppStandard": {
+          "type": "string",
+          "default": "",
+          "description": "Override the C++ standard for IntelliSense (e.g. 'c++17', 'c++20'). Leave empty to use the platform default."
+        },
+        "upp.guiMode": {
+          "type": "string",
+          "enum": ["auto", "gui", "console"],
+          "default": "auto",
+          "description": "GUI vs console mode. 'auto' derives from the .upp mainconfig, 'gui' always passes +GUI, 'console' omits it."
+        },
+        "upp.runArgs": {
+          "type": "string",
+          "default": "",
+          "description": "Extra arguments appended after the executable when running (e.g. '--log-level=debug')."
+        },
+        "upp.runCwd": {
+          "type": "string",
+          "default": "",
+          "description": "Working directory for the run process. Leave empty to use the workspace root."
+        },
+        "upp.runEnv": {
+          "type": "string",
+          "default": "",
+          "description": "Environment variables for the run process, one per line in KEY=VALUE format."
+        },
+        "upp.terminalApp": {
+          "type": "string",
+          "default": "",
+          "description": "Terminal emulator to run programs in. Leave empty to auto-detect from $TERMINAL, $TERM_PROGRAM, VTE (gnome-terminal), XDG settings, or fall back to xterm."
+        },
+        "upp.outPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override output file or directory. Passed as the 'out' argument to umk."
+        },
+        "upp.activeAssembly": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the active .var assembly file (set via UPP: Select Active Assembly)."
+        },
+        "upp.activeMainPackage": {
+          "type": "string",
+          "default": "",
+          "description": "Main package within the active assembly (set via UPP: Select Active Assembly)."
+        },
+        "upp.buildCommand": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The full UMK build command. Auto-generated when you select an assembly/package — edit freely to override. Example:\n```\numk myapp MyApp/Main GCC -br +GUI,MT\n```"
+        },
+        "upp.debugCommand": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The full UMK debug build command. Auto-generated from buildCommand with release flag removed. Used by the Debug action.\n```\numk myapp MyApp/Main GCC -bsH8 +GUI,X11\n```"
+        },
+        "upp.releaseCommand": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The full UMK release build command. Auto-generated from buildCommand with release flag added. Used for release builds.\n```\numk myapp MyApp/Main GCC -brsH8 +GUI,X11\n```"
+        },
+        "upp.showWorkspaceSwitchNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a 'Switch / Stay' prompt when a new .code-workspace is created or a different one is selected. When disabled, the workspace switches automatically."
+        },
+        "upp.autoMoveWorkspaces": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically move .code-workspace files when their assembly directories change location. If false, prompts the user to choose Update/Move/Delete/Ignore for each mismatch."
+        },
+        "upp.outputConsole": {
+          "type": "string",
+          "enum": ["always", "auto", "never"],
+          "default": "auto",
+          "description": "When to open the terminal during run. 'always' opens it immediately, 'auto' opens only on failure, 'never' leaves it closed."
+        },
+        "upp.compileCommandsMode": {
+          "type": "string",
+          "enum": ["off", "auto", "manual"],
+          "default": "off",
+          "description": "compile_commands.json generation mode. 'auto' watches source files and regenerates on changes, 'manual' provides a command to generate on demand, 'off' disables. Workspace setting overrides user setting."
+        },
+        "upp.generateClangJson": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The full UMK command for compile_commands.json generation. Auto-generated when you select an assembly/package — edit freely to override. Example:\n```\numk myapp MyApp/Main CLANG -j\n```"
+        },
+        "upp.outputDir": {
+          "type": "string",
+          "default": "",
+          "description": "U++ build output directory. Defaults to ~/.cache/upp.out/ or ~/upp.out/ depending on your U++ version. Used to locate the compiled binary for debugging."
+        },
+        "upp.debuggerPath": {
+          "type": "string",
+          "default": "gdb",
+          "description": "Path to gdb executable for debug sessions. Used by Native Debug (webfreak.debug) or cpptools extensions."
+        },
+        "upp.restartClangdAfterGenerate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically restart the clangd language server after generating compile_commands.json. Ensures clangd picks up the new data immediately."
+        }
+      }
+    },
+    "taskDefinitions": [
+      {
+        "type": "upp",
+        "properties": {
+          "assembly": {
+            "type": "string",
+            "description": "Assembly name or comma-separated nest dirs"
+          },
+          "mainPackage": {
+            "type": "string",
+            "description": "Main package to build, e.g. MyApp/Main"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "build",
+              "run",
+              "rebuild"
+            ]
+          },
+          "buildFlags": {
+            "type": "string",
+            "description": "Flags without dash, e.g. 'br'"
+          },
+          "configurationFlag": {
+            "type": "string",
+            "description": "+FLAGs, e.g. 'GUI,MT'"
+          },
+          "outPath": {
+            "type": "string",
+            "description": "Output path override"
+          }
+        }
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "upp.run",
+        "key": "ctrl+shift+q"
+      },
+      {
+        "command": "upp.build",
+        "key": "ctrl+shift+b"
+      },
+      {
+        "command": "upp.stopRun",
+        "key": "ctrl+shift+x"
+      },
+      {
+        "command": "upp.debug",
+        "key": "ctrl+shift+d"
+      },
+      {
+        "command": "upp.showLogs",
+        "key": "alt+l"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "upp.build",
+          "when": "view == upp.stateView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "upp.run",
+          "when": "view == upp.stateView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "upp.debug",
+          "when": "view == upp.stateView",
+          "group": "navigation@2.5"
+        },
+        {
+          "command": "upp.rebuild",
+          "when": "view == upp.stateView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "upp.selectAssembly",
+          "when": "view == upp.stateView",
+          "group": "navigation@4"
+        },
+        {
+          "command": "upp.generateCompileCommands",
+          "when": "view == upp.stateView",
+          "group": "navigation@5"
+        },
+        {
+          "command": "upp.syncWorkspaces",
+          "when": "view == upp.stateView",
+          "group": "navigation@6"
+        },
+        {
+          "command": "upp.openOutputDir",
+          "when": "view == upp.stateView",
+          "group": "navigation@7"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "upp.build",
+          "when": "resourceExtname == .cpp || resourceExtname == .h",
+          "group": "navigation"
+        },
+        {
+          "command": "upp.run",
+          "when": "resourceExtname == .cpp || resourceExtname == .h",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
