@@ -8,7 +8,7 @@ Build, run, debug, and manage **[U++](https://ultimatepp.org)** packages in VSCo
 
 ## What is U++?
 
-[U++](https://ultimatepp.org) (formerly known as Ultimate++) is a C++ rapid application development framework. It uses a bundle system with assemblies, packages, and `.var` files to organize projects. The `umk` tool is U++'s command-line build utility, which this extension wraps to provide a seamless VSCode experience.
+[U++](https://ultimatepp.org) (formerly known as Ultimate++) is a C++ rapid application development framework. It uses a bundle system with `.var` files for assemblies and `.upp` files to organize packages. The `umk` tool is U++'s command-line build utility, which this extension wraps to provide a seamless VSCode experience.
 
 ### So what is U++ exactly?
 
