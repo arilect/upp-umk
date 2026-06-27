@@ -2,36 +2,65 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { Assembly } from './assemblyParser';
+import { UppInstallation } from './installations';
 
-// ─── Output Directory Resolution ──────────────────────────────────────────────
+/**
+ * Resolve the base output directory for a given installation/assembly.
+ * Precedence:
+ *   1. Assembly .var OUTPUT directive
+ *   2. upp.outputDir setting
+ *   3. <installation>/out/
+ *   4. ~/.cache/upp.out/ (fallback)
+ */
+export function resolveBaseOutputDir(
+  installation?: UppInstallation,
+  assembly?: Assembly,
+): string {
+  if (assembly?.output) return assembly.output;
 
-export function resolveOutputDir(activeMainPackage: string | undefined, buildFlags?: string): string {
   const cfg = vscode.workspace.getConfiguration('upp');
-  const outputDir = cfg.get('outputDir', '') || path.join(os.homedir(), '.cache', 'upp.out');
-  const pkgLeaf = path.basename(activeMainPackage ?? '');
-  const method = cfg.get('buildMethod', 'CLANG');
-  const flags = buildFlags ?? cfg.get('buildFlags', '');
-  const mode = flags.includes('r') ? 'Release' : 'Debug';
-  return path.join(outputDir, pkgLeaf, `${method}.${mode}`);
+  const configured = cfg.get<string>('outputDir', '');
+  if (configured) return configured;
+
+  if (installation) return path.join(installation.path, 'out');
+
+  return path.join(os.homedir(), '.cache', 'upp.out');
+}
+
+/**
+ * Resolve the assembly-level output directory.
+ * U++ convention: <base>/<assembly>/
+ */
+export function resolveOutputDir(
+  installation?: UppInstallation,
+  assembly?: Assembly,
+  activeMainPackage?: string,
+): string {
+  const baseOutputDir = resolveBaseOutputDir(installation, assembly);
+  const assName = assembly?.name ?? path.basename(activeMainPackage ?? '');
+  return path.join(baseOutputDir, assName);
 }
 
 /**
  * Find the actual binary in the U++ output directory.
- * U++ output convention: ~/.cache/upp.out/<assembly>/<method>.<mode>.<flags>/<package>
- * Build output dirs start with the build method name (e.g. CLANG., GCC.)
- * Package source dirs are named after packages (ArrayCtrl, Core, etc.)
+ * Searches <base>/<assembly>/ for builder-prefixed subdirs (CLANG.*, GCC.*, etc.)
+ * and looks for the binary inside.
  */
-export function findBinaryInOutputDir(outputDir: string, pkgLeaf: string): string | undefined {
-  if (!fs.existsSync(outputDir)) return undefined;
+export function findBinaryInOutputDir(
+  baseOutputDir: string,
+  assemblyName: string,
+  pkgLeaf: string,
+): string | undefined {
+  const assemblyDir = path.join(baseOutputDir, assemblyName);
+  if (!fs.existsSync(assemblyDir)) return undefined;
 
-  const entries = fs.readdirSync(outputDir, { withFileTypes: true });
+  const entries = fs.readdirSync(assemblyDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    // Only look in build output directories (start with CLANG, GCC, etc.)
     if (!/^(CLANG|GCC|MSC|ICC|FPC)\./i.test(entry.name)) continue;
 
-    const subdir = path.join(outputDir, entry.name);
-    const candidate = path.join(subdir, pkgLeaf);
+    const candidate = path.join(assemblyDir, entry.name, pkgLeaf);
     if (fs.existsSync(candidate)) {
       return candidate;
     }
@@ -41,25 +70,22 @@ export function findBinaryInOutputDir(outputDir: string, pkgLeaf: string): strin
 
 /**
  * Resolve the debug output directory by searching for the assembly's build output.
- * U++ convention: ~/.cache/upp.out/<assembly>/<method>.<mode>.<flags>/
- * Build output dirs start with the build method name (CLANG., GCC., etc.)
+ * Searches <base>/<assembly>/ for builder-prefixed subdirs.
  */
-export function resolveDebugOutputDir(assemblyName: string | undefined, activeMainPackage: string | undefined): string {
-  const cfg = vscode.workspace.getConfiguration('upp');
-  const baseOutputDir = cfg.get('outputDir', '') || path.join(os.homedir(), '.cache', 'upp.out');
+export function resolveDebugOutputDir(
+  installation?: UppInstallation,
+  assembly?: Assembly,
+  activeMainPackage?: string,
+): string {
+  const baseOutputDir = resolveBaseOutputDir(installation, assembly);
+  const assName = assembly?.name ?? path.basename(activeMainPackage ?? '');
   const pkgLeaf = path.basename(activeMainPackage ?? '');
+  const assemblyDir = path.join(baseOutputDir, assName);
 
-  if (!assemblyName || !pkgLeaf || !fs.existsSync(baseOutputDir)) {
-    return path.join(baseOutputDir, pkgLeaf, 'Debug');
+  if (!pkgLeaf || !fs.existsSync(assemblyDir)) {
+    return path.join(assemblyDir, 'Debug');
   }
 
-  // Search under assembly name directory
-  const assemblyDir = path.join(baseOutputDir, assemblyName);
-  if (!fs.existsSync(assemblyDir)) {
-    return path.join(baseOutputDir, pkgLeaf, 'Debug');
-  }
-
-  // Find build output subdirectories (start with CLANG, GCC, etc.)
   const entries = fs.readdirSync(assemblyDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
@@ -71,28 +97,25 @@ export function resolveDebugOutputDir(assemblyName: string | undefined, activeMa
     }
   }
 
-  // Fallback: return first build output directory
   const buildDirs = entries.filter(e => e.isDirectory() && /^(CLANG|GCC|MSC|ICC|FPC)\./i.test(e.name));
   if (buildDirs.length > 0) {
     return path.join(assemblyDir, buildDirs[0].name);
   }
 
-  return path.join(baseOutputDir, pkgLeaf, 'Debug');
+  return path.join(assemblyDir, 'Debug');
 }
 
-export function resolveBinaryPath(activeMainPackage: string | undefined, buildFlags?: string): string {
-  return path.join(resolveOutputDir(activeMainPackage, buildFlags), path.basename(activeMainPackage ?? ''));
-}
-
-export function resolveDebugBinaryPath(assemblyName: string | undefined, activeMainPackage: string | undefined): string {
-  const cfg = vscode.workspace.getConfiguration('upp');
-  const baseOutputDir = cfg.get('outputDir', '') || path.join(os.homedir(), '.cache', 'upp.out');
+export function resolveDebugBinaryPath(
+  installation?: UppInstallation,
+  assembly?: Assembly,
+  activeMainPackage?: string,
+): string {
+  const baseOutputDir = resolveBaseOutputDir(installation, assembly);
+  const assName = assembly?.name ?? path.basename(activeMainPackage ?? '');
   const pkgLeaf = path.basename(activeMainPackage ?? '');
 
-  // First try to find the actual binary in the output directory
-  const found = findBinaryInOutputDir(baseOutputDir, pkgLeaf);
+  const found = findBinaryInOutputDir(baseOutputDir, assName, pkgLeaf);
   if (found) return found;
 
-  // Fallback to constructed path
-  return path.join(resolveDebugOutputDir(assemblyName, activeMainPackage), pkgLeaf);
+  return path.join(resolveDebugOutputDir(installation, assembly, activeMainPackage), pkgLeaf);
 }

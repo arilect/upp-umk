@@ -56,6 +56,18 @@ export function getDefaultTerminal(): string {
   const custom: string = cfg.get('terminalApp', '');
   if (custom) return custom;
   if (process.platform === 'win32') {
+    try {
+      const r = require('child_process').execSync('where wt 2>nul', { encoding: 'utf8' }).trim().split('\n')[0];
+      if (r && fs.existsSync(r)) return r;
+    } catch { /* not found */ }
+    try {
+      const r = require('child_process').execSync('where pwsh 2>nul', { encoding: 'utf8' }).trim().split('\n')[0];
+      if (r && fs.existsSync(r)) return r;
+    } catch { /* not found */ }
+    try {
+      const r = require('child_process').execSync('where powershell 2>nul', { encoding: 'utf8' }).trim().split('\n')[0];
+      if (r && fs.existsSync(r)) return r;
+    } catch { /* not found */ }
     return process.env.COMSPEC || 'cmd.exe';
   }
   if (process.env.TERMINAL) return process.env.TERMINAL;
@@ -118,7 +130,7 @@ export function getDefaultTerminal(): string {
 }
 
 function winQuote(a: string): string {
-  return a.includes(' ') || a.includes('&') || a.includes('^') || a.includes('|')
+  return /[ &|^()%!]/.test(a)
     ? `"${a.replace(/"/g, '""')}"`
     : a;
 }
@@ -131,34 +143,55 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
   }
 
   if (process.platform === 'win32') {
-    const cmd = [umkPath, ...args].map(a => winQuote(a)).join(' ');
-    const innerFlags = openTerminal ? '/k' : '/c';
-    const shellCmd = `start "UPP" cmd.exe ${innerFlags} "${cmd}"`;
-    const child = spawn('cmd.exe', ['/c', shellCmd], {
-      cwd: cwd || undefined,
-      env: mergedEnv,
-      detached: true,
-      stdio: 'ignore',
-    });
-
-    setActiveRunProcess(child);
-    setIsRunning(true);
-    updateStatusBar();
-
-    child.on('exit', () => {
-      setActiveRunProcess(undefined);
-      setIsRunning(false);
+    if (openTerminal) {
+      // Open a new console window that stays visible (via start with /k)
+      const cmdLine = [umkPath, ...args].map(a => winQuote(a)).join(' ');
+      const child = spawn('cmd.exe', ['/c', `start "UPP" cmd.exe /k ${cmdLine}`], {
+        cwd: cwd || undefined,
+        env: mergedEnv,
+        detached: true,
+        stdio: 'ignore',
+      });
+      setActiveRunProcess(child);
+      setIsRunning(true);
       updateStatusBar();
-    });
-
-    child.on('error', (err) => {
-      vscode.window.showErrorMessage(`UPP: Failed to launch terminal "${term}": ${err.message}`);
-      setActiveRunProcess(undefined);
-      setIsRunning(false);
+      child.on('exit', () => {
+        setActiveRunProcess(undefined);
+        setIsRunning(false);
+        updateStatusBar();
+      });
+      child.on('error', (err) => {
+        vscode.window.showErrorMessage(`UPP: Failed to launch terminal: ${err.message}`);
+        setActiveRunProcess(undefined);
+        setIsRunning(false);
+        updateStatusBar();
+      });
+      child.unref();
+    } else {
+      // Run silently (outputConsole: never) – no visible window
+      const cmdLine = [umkPath, ...args].map(a => winQuote(a)).join(' ');
+      const child = spawn('cmd.exe', ['/c', cmdLine], {
+        cwd: cwd || undefined,
+        env: mergedEnv,
+        detached: true,
+        stdio: 'ignore',
+      });
+      setActiveRunProcess(child);
+      setIsRunning(true);
       updateStatusBar();
-    });
-
-    child.unref();
+      child.on('exit', () => {
+        setActiveRunProcess(undefined);
+        setIsRunning(false);
+        updateStatusBar();
+      });
+      child.on('error', (err) => {
+        vscode.window.showErrorMessage(`UPP: Run failed: ${err.message}`);
+        setActiveRunProcess(undefined);
+        setIsRunning(false);
+        updateStatusBar();
+      });
+      child.unref();
+    }
     return;
   }
 
@@ -236,7 +269,7 @@ export async function doAction(action: UmkAction) {
     if (runArgs)    args.push(...runArgs.split(/\s+/).filter(Boolean));
     let runCwd: string = cfg.get('runCwd', '');
     if (!runCwd) {
-      const resolved = resolveDebugOutputDir(assemblyName, mainPackage);
+      const resolved = resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage);
       runCwd = fs.existsSync(resolved) ? resolved : '';
     }
     const runEnv: string = cfg.get('runEnv', '');

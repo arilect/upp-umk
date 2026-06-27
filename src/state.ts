@@ -7,6 +7,17 @@ import { UppStateProvider } from './sidebarProvider';
 import { resolveOutputDir, resolveDebugOutputDir } from './outputDir';
 import { UppInstallation, scanInstallations } from './installations';
 
+export function killProcess(proc: cp.ChildProcess | undefined): void {
+  if (!proc || proc.killed) return;
+  if (process.platform === 'win32') {
+    try {
+      cp.execSync(`taskkill /pid ${proc.pid} /T /F 2>nul`, { stdio: 'ignore' });
+    } catch { /* process already gone */ }
+  } else {
+    proc.kill('SIGTERM');
+  }
+}
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 export let outputChannel: vscode.OutputChannel;
@@ -59,8 +70,8 @@ export function updateStatusBar() {
   }
   statusBarItem.show();
   const cfg = vscode.workspace.getConfiguration('upp');
-  const outputDirPath = activeAssembly && activeMainPackage ? resolveOutputDir(activeMainPackage) : undefined;
-  const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeAssembly.name, activeMainPackage) : undefined;
+  const outputDirPath = activeAssembly && activeMainPackage ? resolveOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
+  const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
   const debugCmdText = cfg.get<string>('debugCommand', '');
   stateProvider?.refresh(activeInstallation, activeAssembly, activeMainPackage, isRunning, activePackageDescription, activePackageUppFile, isDebugging, outputDirPath, debugOutputDirPath, debugCmdText);
 }

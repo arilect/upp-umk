@@ -128,7 +128,7 @@ function buildHtml(opts: RunOptions): string {
   <div class="field">
     <label for="terminalAppInput">Terminal Emulator</label>
     <input type="text" id="terminalAppInput" value="${isCustom ? esc(opts.terminalApp) : ''}" class="mono" placeholder="auto: ${esc(opts.terminalApp)}" />
-    <div class="hint">Leave empty to auto-detect (${esc(opts.terminalApp)}). Enter a name to override (e.g. kitty, alacritty, foot).</div>
+    <div class="hint">Leave empty to auto-detect (${esc(opts.terminalApp)}). Enter a name to override (e.g. kitty, alacritty, foot; on Windows: wt, pwsh, powershell).</div>
   </div>
   <div class="field">
     <label for="outputConsole">Open Terminal</label>
@@ -151,7 +151,7 @@ function buildHtml(opts: RunOptions): string {
   <div class="field">
     <label for="runCwd">Working Directory</label>
     <input type="text" id="runCwd" value="${esc(opts.runCwd)}" placeholder="build output dir (default)" />
-    <div class="hint">Leave empty to use the build output directory (~/.cache/upp.out/...).</div>
+    <div class="hint">Leave empty to use the build output directory (~/.cache/upp.out/... or %LOCALAPPDATA%/upp.out/... on Windows).</div>
   </div>
 
   <div class="section">Environment Variables</div>

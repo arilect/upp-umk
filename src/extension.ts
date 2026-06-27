@@ -12,7 +12,7 @@ import {
   activeInstallation,
   activeAssembly, activeMainPackage, setIsRunning,
   setIsDebugging, debugTerminal, setDebugTerminal,
-  activeRunProcess, setActiveRunProcess,
+  activeRunProcess, setActiveRunProcess, killProcess,
   setActiveAssembly, setActiveMainPackage,
   setActivePackageDescription, setActivePackageUppFile,
   setActiveInstallation,
@@ -168,10 +168,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.run',                () => doAction('run')),
     vscode.commands.registerCommand('upp.rebuild',            () => doAction('rebuild')),
     vscode.commands.registerCommand('upp.stopRun', () => {
-      const proc = activeRunProcess;
-      if (proc && !proc.killed) {
-        proc.kill('SIGTERM');
-      }
+      killProcess(activeRunProcess);
       setActiveRunProcess(undefined);
       setIsRunning(false);
       updateStatusBar();
@@ -236,7 +233,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const binaryPath = resolveDebugBinaryPath(activeAssembly?.name, activeMainPackage);
+      const binaryPath = resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage);
       const debuggerPath = cfg.get('debuggerPath', 'gdb');
       const folder = vscode.workspace.workspaceFolders?.[0];
       const cwd = folder?.uri.fsPath ?? path.dirname(binaryPath);
@@ -346,7 +343,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('UPP: No active assembly/package selected.');
         return;
       }
-      const outputDir = resolveOutputDir(activeMainPackage);
+      const outputDir = resolveOutputDir(activeInstallation, activeAssembly, activeMainPackage);
       if (fs.existsSync(outputDir)) {
         vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
       } else {
@@ -358,7 +355,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('UPP: No active assembly/package selected.');
         return;
       }
-      const debugDir = resolveDebugOutputDir(activeAssembly.name, activeMainPackage);
+      const debugDir = resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage);
       if (fs.existsSync(debugDir)) {
         vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(debugDir));
       } else {
@@ -506,11 +503,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   disposeCompileCommandsWatcher();
-  const proc = activeRunProcess;
-  if (proc && !proc.killed) {
-    proc.kill('SIGTERM');
-    setActiveRunProcess(undefined);
-  }
+  killProcess(activeRunProcess);
+  setActiveRunProcess(undefined);
   let dt = debugTerminal;
   if (dt) {
     dt.dispose();
