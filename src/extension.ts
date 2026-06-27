@@ -91,7 +91,9 @@ export async function activate(context: vscode.ExtensionContext) {
     if (found.length === 1) {
       setActiveInstallation(found[0]);
       const activeInstallPath = found[0].path;
-      cfg.update('activeInstallation', activeInstallPath, vscode.ConfigurationTarget.Global);
+      await cfg.update('activeInstallation', activeInstallPath, vscode.ConfigurationTarget.Global);
+      const umkPath = path.join(activeInstallPath, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
     } else if (found.length > 1) {
       const picked = await vscode.window.showQuickPick(
         found.map(inst => ({
@@ -104,7 +106,9 @@ export async function activate(context: vscode.ExtensionContext) {
       );
       if (picked) {
         setActiveInstallation(picked.installation);
-        cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
+        await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
+        const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
+        await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       }
     }
   }
@@ -132,6 +136,8 @@ export async function activate(context: vscode.ExtensionContext) {
       setActiveInstallation(picked.installation);
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
+      const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(`UPP: Switched to "${picked.installation.label}"`);
       updateStatusBar();
     }),
@@ -426,6 +432,8 @@ export async function activate(context: vscode.ExtensionContext) {
       setActiveInstallation(picked.installation);
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
+      const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       updateStatusBar();
       vscode.window.showInformationMessage(`UPP: Installation "${picked.installation.label}" activated with ${picked.installation.assemblies.length} assembly(ies).`);
     })
