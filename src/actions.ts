@@ -139,15 +139,12 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
   if (process.platform === 'win32') {
     // Use VS Code's integrated terminal — avoids all cmd.exe quoting issues
     // and lets the user select/copy output directly.
-    const binaryName = path.win32.basename(umkPath);
     const cmdLine = [umkPath, ...args].join(' ');
     const terminal = vscode.window.createTerminal({
       name: 'UPP Run',
       cwd: cwd || undefined,
       env: mergedEnv as { [key: string]: string },
     });
-    terminal.sendText(`echo Binary: ${binaryName}`);
-    terminal.sendText(`echo Full path: ${umkPath}`);
     terminal.sendText(cmdLine);
     terminal.show();
     setActiveRunTerminal(terminal);
@@ -236,6 +233,9 @@ export async function doAction(action: UmkAction) {
       if (!binaryPath || !fs.existsSync(binaryPath)) {
         vscode.window.showErrorMessage(`UPP: Binary not found at "${binaryPath}". Build the project first.`);
         return;
+      }
+      if (!runCwd || !fs.existsSync(runCwd)) {
+        runCwd = path.dirname(binaryPath);
       }
       const runArgsArr = runArgs ? runArgs.split(/\s+/).filter(Boolean) : [];
       runInTerminal(binaryPath, runArgsArr, runCwd, parseEnv(runEnv), openTerminal);
