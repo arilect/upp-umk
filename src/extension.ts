@@ -503,13 +503,19 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  if (activeAssembly && activeMainPackage) {
-    const cfg = vscode.workspace.getConfiguration('upp');
-    const mode: string = cfg.get('compileCommandsMode', 'off');
-    if (mode === 'auto') {
-      updateCompileCommandsWatcher(activeAssembly, activeMainPackage, outputChannel);
+  // Cleanup stale compile_commands.json from previous sessions
+  // so the C++ extension doesn't show compiler path errors on unrelated actions.
+  if (activeAssembly?.nests) {
+    for (const nest of activeAssembly.nests) {
+      if (!fs.existsSync(nest)) continue;
+      const rootCc = path.join(nest, 'compile_commands.json');
+      if (fs.existsSync(rootCc)) try { fs.unlinkSync(rootCc); } catch {}
+      for (const entry of fs.readdirSync(nest, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const ccPath = path.join(nest, entry.name, 'compile_commands.json');
+        if (fs.existsSync(ccPath)) try { fs.unlinkSync(ccPath); } catch {}
+      }
     }
-    syncCompileCommandsCommand(activeAssembly, activeMainPackage, cfg);
   }
 }
 
