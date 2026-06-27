@@ -8,7 +8,7 @@ import {
   setIsRunning, setActiveRunProcess, setActiveRunTerminal, updateStatusBar,
 } from './state';
 import { selectAssembly } from './panels';
-import { resolveDebugOutputDir } from './outputDir';
+import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -218,13 +218,6 @@ export async function doAction(action: UmkAction) {
 
   // Run via XDG terminal so we can detect process exit
   if (action === 'run') {
-    const args = [assemblyName, mainPackage];
-    if (buildMethod) args.push(buildMethod);
-    if (flagArg)    args.push(`-${flagArg}`);
-    if (configurationFlag) args.push(`+${configurationFlag}`);
-    if (outPath)    args.push(outPath);
-    args.push('!');
-    if (runArgs)    args.push(...runArgs.split(/\s+/).filter(Boolean));
     let runCwd: string = cfg.get('runCwd', '');
     if (!runCwd) {
       const resolved = resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage);
@@ -233,7 +226,27 @@ export async function doAction(action: UmkAction) {
     const runEnv: string = cfg.get('runEnv', '');
     const outputConsole: string = cfg.get('outputConsole', 'auto');
     const openTerminal = outputConsole !== 'never';
-    runInTerminal(umkPath, args, runCwd, parseEnv(runEnv), openTerminal);
+
+    if (process.platform === 'win32') {
+      // Windows: run the compiled binary directly (umk + "!" doesn't work reliably)
+      const binaryPath = resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage);
+      if (!binaryPath || !fs.existsSync(binaryPath)) {
+        vscode.window.showErrorMessage(`UPP: Binary not found at "${binaryPath}". Build the project first.`);
+        return;
+      }
+      const runArgsArr = runArgs ? runArgs.split(/\s+/).filter(Boolean) : [];
+      runInTerminal(binaryPath, runArgsArr, runCwd, parseEnv(runEnv), openTerminal);
+    } else {
+      // Unix: umk with "!" builds if needed then runs
+      const args = [assemblyName, mainPackage];
+      if (buildMethod) args.push(buildMethod);
+      if (flagArg)    args.push(`-${flagArg}`);
+      if (configurationFlag) args.push(`+${configurationFlag}`);
+      if (outPath)    args.push(outPath);
+      args.push('!');
+      if (runArgs)    args.push(...runArgs.split(/\s+/).filter(Boolean));
+      runInTerminal(umkPath, args, runCwd, parseEnv(runEnv), openTerminal);
+    }
     return;
   }
 

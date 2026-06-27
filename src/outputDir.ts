@@ -61,8 +61,16 @@ export function findBinaryInOutputDir(
     if (!/^(CLANG|GCC|MSC|ICC|FPC)\./i.test(entry.name)) continue;
 
     const candidate = path.join(assemblyDir, entry.name, pkgLeaf);
-    if (fs.existsSync(candidate)) {
-      return candidate;
+    if (!fs.existsSync(candidate)) continue;
+
+    const stat = fs.statSync(candidate);
+    if (stat.isFile()) {
+      return candidate; // Linux: <variant>/<pkgLeaf> is the binary
+    }
+    if (stat.isDirectory()) {
+      // Windows: <variant>/<pkgLeaf>/<pkgLeaf>.exe
+      const binaryPath = path.join(candidate, pkgLeaf + '.exe');
+      if (fs.existsSync(binaryPath)) return binaryPath;
     }
   }
   return undefined;
@@ -117,5 +125,6 @@ export function resolveDebugBinaryPath(
   const found = findBinaryInOutputDir(baseOutputDir, assName, pkgLeaf);
   if (found) return found;
 
-  return path.join(resolveDebugOutputDir(installation, assembly, activeMainPackage), pkgLeaf);
+  const ext = process.platform === 'win32' ? '.exe' : '';
+  return path.join(resolveDebugOutputDir(installation, assembly, activeMainPackage), pkgLeaf + ext);
 }
