@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import { Assembly, parseAssembly, parseUppFile } from './assemblyParser';
 import { UppStateProvider } from './sidebarProvider';
-import { resolveOutputDir, resolveDebugOutputDir } from './outputDir';
+import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
 import { UppInstallation, scanInstallations } from './installations';
 
 export function killProcess(proc: cp.ChildProcess | undefined): void {
@@ -30,6 +30,7 @@ export let statusBarItem: vscode.StatusBarItem;
 export let stateProvider: UppStateProvider;
 export let stateTreeView: vscode.TreeView<unknown>;
 export let activeRunProcess: cp.ChildProcess | undefined;
+export let activeRunTerminal: vscode.Terminal | undefined;
 export let isRunning = false;
 export let isDebugging = false;
 export let debugTerminal: vscode.Terminal | undefined;
@@ -49,6 +50,7 @@ export function setStatusBarItem(sb: vscode.StatusBarItem) { statusBarItem = sb;
 export function setStateProvider(sp: UppStateProvider) { stateProvider = sp; }
 export function setStateTreeView(tv: vscode.TreeView<unknown>) { stateTreeView = tv; }
 export function setActiveRunProcess(p: cp.ChildProcess | undefined) { activeRunProcess = p; }
+export function setActiveRunTerminal(t: vscode.Terminal | undefined) { activeRunTerminal = t; }
 export function setIsRunning(v: boolean) { isRunning = v; }
 export function setIsDebugging(v: boolean) { isDebugging = v; }
 export function setDebugTerminal(t: vscode.Terminal | undefined) { debugTerminal = t; }
@@ -70,7 +72,9 @@ export function updateStatusBar() {
   }
   statusBarItem.show();
   const cfg = vscode.workspace.getConfiguration('upp');
-  const outputDirPath = activeAssembly && activeMainPackage ? resolveOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
+  const outputDirPath = activeAssembly && activeMainPackage
+    ? path.dirname(resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage))
+    : undefined;
   const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
   const debugCmdText = cfg.get<string>('debugCommand', '');
   stateProvider?.refresh(activeInstallation, activeAssembly, activeMainPackage, isRunning, activePackageDescription, activePackageUppFile, isDebugging, outputDirPath, debugOutputDirPath, debugCmdText);

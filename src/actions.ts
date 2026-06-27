@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import { UmkAction, runUmk } from './umkRunner';
 import * as path from 'path';
 import {
   activeAssembly, activeMainPackage, activeInstallation, outputChannel,
-  setIsRunning, setActiveRunProcess, updateStatusBar,
+  setIsRunning, setActiveRunProcess, setActiveRunTerminal, updateStatusBar,
 } from './state';
 import { selectAssembly } from './panels';
 import { resolveDebugOutputDir } from './outputDir';
@@ -129,12 +129,6 @@ export function getDefaultTerminal(): string {
   return 'xterm';
 }
 
-function winQuote(a: string): string {
-  return /[ &|^()%!]/.test(a)
-    ? `"${a.replace(/"/g, '""')}"`
-    : a;
-}
-
 function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record<string, string>, openTerminal: boolean) {
   const term = getDefaultTerminal();
   const mergedEnv: Record<string, string | undefined> = { ...process.env, ...env };
@@ -143,34 +137,19 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
   }
 
   if (process.platform === 'win32') {
-    // Spawn cmd.exe directly with /k (keep open) or /c (close after).
-    // Passing args as separate array elements avoids Node.js's \"-escaping
-    // inside the command string, which cmd.exe cannot parse.
-    const child = spawn(
-      'cmd.exe',
-      [openTerminal ? '/k' : '/c', umkPath, ...args],
-      {
-        cwd: cwd || undefined,
-        env: mergedEnv,
-        detached: true,
-        stdio: 'ignore',
-      },
-    );
-    setActiveRunProcess(child);
+    // Use VS Code's integrated terminal — avoids all cmd.exe quoting issues
+    // and lets the user select/copy output directly.
+    const cmdLine = [umkPath, ...args].join(' ');
+    const terminal = vscode.window.createTerminal({
+      name: 'UPP Run',
+      cwd: cwd || undefined,
+      env: mergedEnv as { [key: string]: string },
+    });
+    terminal.sendText(cmdLine);
+    terminal.show();
+    setActiveRunTerminal(terminal);
     setIsRunning(true);
     updateStatusBar();
-    child.on('exit', () => {
-      setActiveRunProcess(undefined);
-      setIsRunning(false);
-      updateStatusBar();
-    });
-    child.on('error', (err) => {
-      vscode.window.showErrorMessage(`UPP: Failed to launch terminal: ${err.message}`);
-      setActiveRunProcess(undefined);
-      setIsRunning(false);
-      updateStatusBar();
-    });
-    child.unref();
     return;
   }
 

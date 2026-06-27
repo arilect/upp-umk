@@ -12,14 +12,14 @@ import {
   activeInstallation,
   activeAssembly, activeMainPackage, setIsRunning,
   setIsDebugging, debugTerminal, setDebugTerminal,
-  activeRunProcess, setActiveRunProcess, killProcess,
+  activeRunProcess, setActiveRunProcess, activeRunTerminal, setActiveRunTerminal, killProcess,
   setActiveAssembly, setActiveMainPackage,
   setActivePackageDescription, setActivePackageUppFile,
   setActiveInstallation,
   restoreState, updateStatusBar, getActiveState,
 } from './state';
 import { UppStateProvider } from './sidebarProvider';
-import { resolveOutputDir, resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
+import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode } from './buildCommand';
 import { syncWorkspaces } from './workspace';
 import { doAction, ensureActiveAssembly } from './actions';
@@ -170,6 +170,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.stopRun', () => {
       killProcess(activeRunProcess);
       setActiveRunProcess(undefined);
+      if (activeRunTerminal && activeRunTerminal.exitStatus === undefined) {
+        activeRunTerminal.dispose();
+        setActiveRunTerminal(undefined);
+      }
       setIsRunning(false);
       updateStatusBar();
     }),
@@ -234,6 +238,10 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       const binaryPath = resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage);
+      if (!fs.existsSync(binaryPath)) {
+        vscode.window.showErrorMessage(`UPP: Debug binary not found at "${binaryPath}". Build the project first and verify the output path.`);
+        return;
+      }
       const debuggerPath = cfg.get('debuggerPath', 'gdb');
       const folder = vscode.workspace.workspaceFolders?.[0];
       const cwd = folder?.uri.fsPath ?? path.dirname(binaryPath);
@@ -343,7 +351,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('UPP: No active assembly/package selected.');
         return;
       }
-      const outputDir = resolveOutputDir(activeInstallation, activeAssembly, activeMainPackage);
+      const outputDir = path.dirname(resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage));
       if (fs.existsSync(outputDir)) {
         vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
       } else {
@@ -445,8 +453,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.window.onDidCloseTerminal(t => {
-      let dbgTerm = debugTerminal;
-      if (t === dbgTerm) {
+      if (t === activeRunTerminal) {
+        setActiveRunTerminal(undefined);
+        setIsRunning(false);
+        updateStatusBar();
+      }
+      if (t === debugTerminal) {
         setDebugTerminal(undefined);
         setIsDebugging(false);
         updateStatusBar();
@@ -505,9 +517,12 @@ export function deactivate() {
   disposeCompileCommandsWatcher();
   killProcess(activeRunProcess);
   setActiveRunProcess(undefined);
-  let dt = debugTerminal;
-  if (dt) {
-    dt.dispose();
+  if (activeRunTerminal && activeRunTerminal.exitStatus === undefined) {
+    activeRunTerminal.dispose();
+    setActiveRunTerminal(undefined);
+  }
+  if (debugTerminal && debugTerminal.exitStatus === undefined) {
+    debugTerminal.dispose();
     setDebugTerminal(undefined);
   }
   outputChannel?.dispose();
