@@ -47,20 +47,22 @@ export function resolveOutputDir(
  * Searches <base>/<assembly>/ for builder-prefixed subdirs (CLANG.*, GCC.*, etc.)
  * and looks for the binary inside.
  */
-export function findBinaryInOutputDir(
-  baseOutputDir: string,
-  assemblyName: string,
+function scanAssemblyDirForBinary(
+  assemblyDir: string,
   pkgLeaf: string,
 ): string | undefined {
-  const assemblyDir = path.join(baseOutputDir, assemblyName);
   if (!fs.existsSync(assemblyDir)) return undefined;
-
   const entries = fs.readdirSync(assemblyDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     if (!/^(CLANG|GCC|MSC|ICC|FPC)\./i.test(entry.name)) continue;
 
     const candidate = path.join(assemblyDir, entry.name, pkgLeaf);
+
+    // Windows: <variant>/<pkgLeaf>.exe directly in variant dir
+    const candidateExe = candidate + '.exe';
+    if (fs.existsSync(candidateExe)) return candidateExe;
+
     if (!fs.existsSync(candidate)) continue;
 
     const stat = fs.statSync(candidate);
@@ -68,10 +70,30 @@ export function findBinaryInOutputDir(
       return candidate; // Linux: <variant>/<pkgLeaf> is the binary
     }
     if (stat.isDirectory()) {
-      // Windows: <variant>/<pkgLeaf>/<pkgLeaf>.exe
-      const binaryPath = path.join(candidate, pkgLeaf + '.exe');
-      if (fs.existsSync(binaryPath)) return binaryPath;
+      // Windows (legacy subdir): <variant>/<pkgLeaf>/<pkgLeaf>.exe
+      const binaryInDir = path.join(candidate, pkgLeaf + '.exe');
+      if (fs.existsSync(binaryInDir)) return binaryInDir;
     }
+  }
+  return undefined;
+}
+
+export function findBinaryInOutputDir(
+  baseOutputDir: string,
+  assemblyName: string,
+  pkgLeaf: string,
+): string | undefined {
+  // First try: <base>/<assemblyName>/
+  const assemblyDir = path.join(baseOutputDir, assemblyName);
+  const found = scanAssemblyDirForBinary(assemblyDir, pkgLeaf);
+  if (found) return found;
+
+  // Fallback: scan all subdirs of baseOutputDir (assembly name may not match on-disk dir)
+  if (!fs.existsSync(baseOutputDir)) return undefined;
+  for (const entry of fs.readdirSync(baseOutputDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name === assemblyName) continue;
+    const found = scanAssemblyDirForBinary(path.join(baseOutputDir, entry.name), pkgLeaf);
+    if (found) return found;
   }
   return undefined;
 }

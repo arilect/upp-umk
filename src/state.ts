@@ -73,7 +73,7 @@ export function updateStatusBar() {
   statusBarItem.show();
   const cfg = vscode.workspace.getConfiguration('upp');
   const outputDirPath = activeAssembly && activeMainPackage
-    ? path.dirname(resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage))
+    ? resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage)
     : undefined;
   const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
   const debugCmdText = cfg.get<string>('debugCommand', '');
