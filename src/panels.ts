@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { findAssemblies, parseMainConfigs } from './assemblyParser';
 import {
-  activeAssembly, activeMainPackage, activePackageDescription, activePackageUppFile,
+  activeAssembly, activeMainPackage, activeInstallation,
+  activePackageDescription, activePackageUppFile,
   setActiveAssembly, setActiveMainPackage, setActivePackageDescription, setActivePackageUppFile,
   outputChannel, updateStatusBar,
 } from './state';
@@ -20,7 +21,9 @@ import { showSelectPackagePanel } from './selectPackagePanel';
 export async function selectAssembly() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const varDir: string = cfg.get('varDir', '');
-  const assemblies = findAssemblies(varDir);
+  const assemblies = activeInstallation?.assemblies?.length
+    ? activeInstallation.assemblies
+    : findAssemblies(varDir);
 
   if (assemblies.length === 0) {
     vscode.window.showWarningMessage(
@@ -58,7 +61,9 @@ export async function selectAssembly() {
 export async function selectPackage() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const varDir: string = cfg.get('varDir', '');
-  const assemblies = findAssemblies(varDir);
+  const assemblies = activeInstallation?.assemblies?.length
+    ? activeInstallation.assemblies
+    : findAssemblies(varDir);
 
   if (assemblies.length === 0) {
     vscode.window.showWarningMessage(

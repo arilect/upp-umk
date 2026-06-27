@@ -61,7 +61,7 @@ export async function switchWorkspace(
       'Open Settings'
     );
     if (choice === 'Open Settings') {
-      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:aris.upp-umk');
+      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
     }
     vscode.window.showInformationMessage(`UPP: Active → ${assembly.name} / ${activeMainPackage}`);
     return;

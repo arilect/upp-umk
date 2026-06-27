@@ -2,8 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { UmkAction, runUmk } from './umkRunner';
+import * as path from 'path';
 import {
-  activeAssembly, activeMainPackage, outputChannel,
+  activeAssembly, activeMainPackage, activeInstallation, outputChannel,
   setIsRunning, setActiveRunProcess, updateStatusBar,
 } from './state';
 import { selectAssembly } from './panels';
@@ -54,6 +55,9 @@ export function getDefaultTerminal(): string {
   const cfg = vscode.workspace.getConfiguration('upp');
   const custom: string = cfg.get('terminalApp', '');
   if (custom) return custom;
+  if (process.platform === 'win32') {
+    return process.env.COMSPEC || 'cmd.exe';
+  }
   if (process.env.TERMINAL) return process.env.TERMINAL;
   if (process.env.TERM_PROGRAM) return process.env.TERM_PROGRAM;
   const de = process.env.XDG_CURRENT_DESKTOP?.toLowerCase() || '';
@@ -113,14 +117,56 @@ export function getDefaultTerminal(): string {
   return 'xterm';
 }
 
+function winQuote(a: string): string {
+  return a.includes(' ') || a.includes('&') || a.includes('^') || a.includes('|')
+    ? `"${a.replace(/"/g, '""')}"`
+    : a;
+}
+
 function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record<string, string>, openTerminal: boolean) {
   const term = getDefaultTerminal();
+  const mergedEnv: Record<string, string | undefined> = { ...process.env, ...env };
+  if (activeInstallation?.path) {
+    mergedEnv.UPP = activeInstallation.path;
+  }
+
+  if (process.platform === 'win32') {
+    const cmd = [umkPath, ...args].map(a => winQuote(a)).join(' ');
+    const innerFlags = openTerminal ? '/k' : '/c';
+    const shellCmd = `start "UPP" cmd.exe ${innerFlags} "${cmd}"`;
+    const child = spawn('cmd.exe', ['/c', shellCmd], {
+      cwd: cwd || undefined,
+      env: mergedEnv,
+      detached: true,
+      stdio: 'ignore',
+    });
+
+    setActiveRunProcess(child);
+    setIsRunning(true);
+    updateStatusBar();
+
+    child.on('exit', () => {
+      setActiveRunProcess(undefined);
+      setIsRunning(false);
+      updateStatusBar();
+    });
+
+    child.on('error', (err) => {
+      vscode.window.showErrorMessage(`UPP: Failed to launch terminal "${term}": ${err.message}`);
+      setActiveRunProcess(undefined);
+      setIsRunning(false);
+      updateStatusBar();
+    });
+
+    child.unref();
+    return;
+  }
+
   const cmd = [umkPath, ...args].map(a => shellEscape(a)).join(' ');
   const fullCmd = openTerminal
     ? `${cmd}; echo; echo "Process exited. Press enter to close..."; read`
     : cmd;
 
-  const mergedEnv = { ...process.env, ...env };
   const child = spawn(term, ['-e', `bash -c '${fullCmd.replace(/'/g, "'\\''")}'`], {
     cwd: cwd || undefined,
     env: mergedEnv,
@@ -154,7 +200,10 @@ export async function doAction(action: UmkAction) {
   if (!(await ensureActiveAssembly())) return;
 
   const cfg = vscode.workspace.getConfiguration('upp');
-  const umkPath: string = cfg.get('umkPath', 'umk');
+  const configuredUmk = cfg.get<string>('umkPath', '');
+  const umkPath: string = configuredUmk || (activeInstallation
+    ? path.join(activeInstallation.path, process.platform === 'win32' ? 'umk.exe' : 'umk')
+    : 'umk');
 
   const assemblyName = activeAssembly!.name;
   const mainPackage  = activeMainPackage!;
@@ -217,6 +266,7 @@ export async function doAction(action: UmkAction) {
         action,
         outputChannel,
         showOutput,
+        uppEnv: activeInstallation?.path,
       });
       progress.report({ increment: 100, message: 'Done' });
     } catch (err: any) {

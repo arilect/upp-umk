@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
 import { findBuildMethods, parseMainConfigs } from './assemblyParser';
-import { activeAssembly, activeMainPackage, updateStatusBar } from './state';
+import { activeAssembly, activeMainPackage, activeInstallation, updateStatusBar } from './state';
 import { persistSetting, updateWorkspaceFile } from './utils';
 
 // ─── Build Params Interface ──────────────────────────────────────────────────
@@ -64,10 +65,19 @@ export function buildCommandLine(
  * This is what gets written to upp.buildCommand and also what doAction uses
  * unless the user has manually edited upp.buildCommand.
  */
+function resolveUmkPath(cfg: vscode.WorkspaceConfiguration): string {
+  const configured = cfg.get<string>('umkPath', '');
+  if (configured) return configured;
+  if (activeInstallation) {
+    return path.join(activeInstallation.path, os.platform() === 'win32' ? 'umk.exe' : 'umk');
+  }
+  return 'umk';
+}
+
 export async function syncBuildCommand() {
   if (!activeAssembly || !activeMainPackage) return;
   const cfg = vscode.workspace.getConfiguration('upp');
-  const umkPath = cfg.get('umkPath', 'umk');
+  const umkPath = resolveUmkPath(cfg);
   const assemblyName = activeAssembly.name;
   const mainPackage = activeMainPackage;
   const buildMethod = cfg.get('buildMethod', 'CLANG');
@@ -123,7 +133,7 @@ export async function selectBuildMethod() {
   if (!chosen) return;
 
   const newCmd = buildCommandLine(
-    cfg.get('umkPath', 'umk'),
+    resolveUmkPath(cfg),
     activeAssembly?.name ?? '',
     activeMainPackage ?? '',
     chosen,
@@ -188,7 +198,7 @@ export async function selectOutput() {
   const rawFlags = stripLinkFlags(newFlags);
 
   const newCmd = buildCommandLine(
-    cfg.get('umkPath', 'umk'),
+    resolveUmkPath(cfg),
     activeAssembly?.name ?? '',
     activeMainPackage ?? '',
     cfg.get('buildMethod', 'CLANG'),
@@ -269,7 +279,7 @@ export async function selectBuildParams(pkgDir: string): Promise<BuildParams | u
   const configurationFlag = (chosenConfig ?? '').replace(/\s+/g, ',').replace(/,+/g, ',');
 
   const buildCommand = buildCommandLine(
-    cfg.get('umkPath', 'umk'),
+    resolveUmkPath(cfg),
     activeAssembly!.name,
     activeMainPackage!,
     chosenBm,

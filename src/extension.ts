@@ -9,11 +9,13 @@ import { syncCompileCommandsCommand, updateCompileCommandsWatcher, doCompileComm
 import {
   outputChannel, setOutputChannel, statusBarItem, setStatusBarItem,
   setStateProvider, setStateTreeView,
+  activeInstallation,
   activeAssembly, activeMainPackage, setIsRunning,
   setIsDebugging, debugTerminal, setDebugTerminal,
   activeRunProcess, setActiveRunProcess,
   setActiveAssembly, setActiveMainPackage,
   setActivePackageDescription, setActivePackageUppFile,
+  setActiveInstallation,
   restoreState, updateStatusBar, getActiveState,
 } from './state';
 import { UppStateProvider } from './sidebarProvider';
@@ -27,7 +29,8 @@ import {
 } from './panels';
 import { showBuildMethodPanel } from './buildMethodPanel';
 import { showRunOptionsPanel } from './runOptionsPanel';
-import { findBuildMethods, scanVarFiles } from './assemblyParser';
+import { findBuildMethods } from './assemblyParser';
+import { scanInstallations, UppInstallation } from './installations';
 
 // ─── Activation ──────────────────────────────────────────────────────────────
 
@@ -79,13 +82,59 @@ export async function activate(context: vscode.ExtensionContext) {
       const dir = path.join(os.homedir(), '.vscode', 'workspaces');
       await cfg.update('workspacesDir', dir, vscode.ConfigurationTarget.Global);
     } else if (choice === 'Open Settings') {
-      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:aris.upp-umk');
+      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
+    }
+  }
+
+  if (!activeInstallation) {
+    const found = scanInstallations();
+    if (found.length === 1) {
+      setActiveInstallation(found[0]);
+      const activeInstallPath = found[0].path;
+      cfg.update('activeInstallation', activeInstallPath, vscode.ConfigurationTarget.Global);
+    } else if (found.length > 1) {
+      const picked = await vscode.window.showQuickPick(
+        found.map(inst => ({
+          label: inst.label,
+          description: inst.path,
+          detail: `${inst.assemblies.length} assembly(ies)`,
+          installation: inst,
+        })),
+        { placeHolder: 'Multiple U++ installations found. Select one:' }
+      );
+      if (picked) {
+        setActiveInstallation(picked.installation);
+        cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
+      }
     }
   }
 
   syncBuildCommand().catch(err => console.warn('UPP: syncBuildCommand failed:', err));
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('upp.selectInstallation', async () => {
+      const found = scanInstallations();
+      if (found.length === 0) {
+        vscode.window.showWarningMessage('UPP: No U++ installations found. Install U++ or check upp.installationsPaths setting.');
+        return;
+      }
+      const currentPath = activeInstallation?.path;
+      const picked = await vscode.window.showQuickPick(
+        found.map(inst => ({
+          label: inst.label,
+          description: inst.path === currentPath ? '$(check) active' : '',
+          detail: `${inst.assemblies.length} assembly(ies)`,
+          installation: inst,
+        })),
+        { placeHolder: 'Select U++ installation' }
+      );
+      if (!picked) return;
+      setActiveInstallation(picked.installation);
+      const cfg = vscode.workspace.getConfiguration('upp');
+      await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`UPP: Switched to "${picked.installation.label}"`);
+      updateStatusBar();
+    }),
     vscode.commands.registerCommand('upp.selectAssembly',     () => selectAssembly()),
     vscode.commands.registerCommand('upp.selectPackage',      () => selectPackage()),
     vscode.commands.registerCommand('upp.selectConfig',       () => selectConfig()),
@@ -125,7 +174,10 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!(await ensureActiveAssembly())) return;
 
       const cfg = vscode.workspace.getConfiguration('upp');
-      const umkPath: string = cfg.get('umkPath', 'umk');
+      const configuredUmk = cfg.get<string>('umkPath', '');
+      const umkPath: string = configuredUmk || (activeInstallation
+        ? path.join(activeInstallation.path, process.platform === 'win32' ? 'umk.exe' : 'umk')
+        : 'umk');
       const assemblyName = activeAssembly!.name;
       const mainPackage  = activeMainPackage!;
       const buildMethod  = cfg.get('buildMethod', 'CLANG');
@@ -169,6 +221,7 @@ export async function activate(context: vscode.ExtensionContext) {
             action: 'build',
             outputChannel,
             showOutput: 'auto',
+            uppEnv: activeInstallation?.path,
           });
           progress.report({ increment: 100, message: 'Build done' });
         });
@@ -353,34 +406,28 @@ export async function activate(context: vscode.ExtensionContext) {
       showBuildMethodPanel(bm.filePath);
     }),
     vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel()),
-    vscode.commands.registerCommand('upp.scanVarFiles', async () => {
-      const cfg = vscode.workspace.getConfiguration('upp');
-      const scanDirs: string[] = cfg.get('scanDirs', ['~']);
-      const assemblies = scanVarFiles(scanDirs);
-
-      if (assemblies.length === 0) {
-        vscode.window.showWarningMessage('UPP: No .var assembly files found in scanned directories.');
+    vscode.commands.registerCommand('upp.scanInstallations', async () => {
+      const found = scanInstallations();
+      if (found.length === 0) {
+        vscode.window.showWarningMessage('UPP: No U++ installations found. Check upp.installationsPaths setting.');
         return;
       }
-
+      const currentPath = activeInstallation?.path;
       const picked = await vscode.window.showQuickPick(
-        assemblies.map(a => ({
-          label: a.name,
-          description: a.filePath,
-          detail: a.nests.length > 0 ? a.nests.join('; ') : undefined,
-          assembly: a,
+        found.map(inst => ({
+          label: inst.label,
+          description: inst.path === currentPath ? '$(check) active' : '',
+          detail: `${inst.assemblies.length} assembly(ies): ${inst.assemblies.map(a => a.name).join(', ')}`,
+          installation: inst,
         })),
-        { placeHolder: 'Select an assembly to activate' }
+        { placeHolder: 'Select a U++ installation to activate' }
       );
-
       if (!picked) return;
-
-      setActiveAssembly(picked.assembly);
-      setActiveMainPackage(undefined);
-      setActivePackageDescription(undefined);
-      setActivePackageUppFile(undefined);
+      setActiveInstallation(picked.installation);
+      const cfg = vscode.workspace.getConfiguration('upp');
+      await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
       updateStatusBar();
-      vscode.window.showInformationMessage(`UPP: Assembly "${picked.assembly.name}" activated from scan.`);
+      vscode.window.showInformationMessage(`UPP: Installation "${picked.installation.label}" activated with ${picked.installation.assemblies.length} assembly(ies).`);
     })
   );
 

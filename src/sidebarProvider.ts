@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { Assembly } from './assemblyParser';
+import { UppInstallation } from './installations';
 
 class UppItem extends vscode.TreeItem {
   constructor(label: string, description: string, command?: vscode.Command) {
@@ -14,6 +15,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
   private _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  private installation: UppInstallation | undefined;
   private assembly: Assembly | undefined;
   private mainPackage: string | undefined;
   private packageDescription: string | undefined;
@@ -25,6 +27,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
   private debugCmdText: string | undefined;
 
   refresh(
+    installation: UppInstallation | undefined,
     assembly: Assembly | undefined,
     mainPackage: string | undefined,
     isRunning = false,
@@ -35,6 +38,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
     debugOutputDirPath?: string,
     debugCmdText?: string,
   ) {
+    this.installation      = installation;
     this.assembly          = assembly;
     this.mainPackage       = mainPackage;
     this.running           = isRunning;
@@ -80,7 +84,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
     const settingsCmd: vscode.Command = {
       command:   'workbench.action.openWorkspaceSettings',
       title:     'Open Workspace Settings',
-      arguments: ['@ext:aris.upp-umk'],
+      arguments: ['@ext:arilect.upp-umk'],
     };
     const selectConfigCmd: vscode.Command = {
       command: 'upp.selectConfig',
@@ -115,11 +119,12 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
 
     const cppStandard: string = cfg.get('cppStandard', '') || 'c++17 (default)';
     const newProjectCmd: vscode.Command = { command: 'upp.newPackage', title: 'New Package' };
-    const scanVarFilesCmd: vscode.Command = { command: 'upp.scanVarFiles', title: 'Scan for Assemblies' };
+    const scanInstallationsCmd: vscode.Command = { command: 'upp.scanInstallations', title: 'Scan for U++ Installations' };
+    const selectInstallationCmd: vscode.Command = { command: 'upp.selectInstallation', title: 'Select U++ Installation' };
     const cppStandardCmd: vscode.Command = {
       command:   'workbench.action.openWorkspaceSettings',
       title:     'Edit cppStandard',
-      arguments: ['@ext:aris.upp-umk upp.cppStandard'],
+      arguments: ['@ext:arilect.upp-umk upp.cppStandard'],
     };
     const keybindingsCmd: vscode.Command = {
       command: 'workbench.action.openGlobalKeybindings',
@@ -127,8 +132,9 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
     };
 
     const items: UppItem[] = [
+      new UppItem('U++ Installation', this.installation?.label ?? '$(plus) click to set', selectInstallationCmd),
       new UppItem('New Package', '', newProjectCmd),
-      new UppItem('Scan for Assemblies', '$(search)', scanVarFilesCmd),
+      new UppItem('Scan for U++ Installations', '$(search)', scanInstallationsCmd),
       new UppItem('Assembly', assemblyName,  selectCmd),
       new UppItem('Package',  packageName,   selectPkgCmd),
       new UppItem('Description', this.packageDescription || '(click to set)', {

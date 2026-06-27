@@ -5,10 +5,12 @@ import * as cp from 'child_process';
 import { Assembly, parseAssembly, parseUppFile } from './assemblyParser';
 import { UppStateProvider } from './sidebarProvider';
 import { resolveOutputDir, resolveDebugOutputDir } from './outputDir';
+import { UppInstallation, scanInstallations } from './installations';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
 export let outputChannel: vscode.OutputChannel;
+export let activeInstallation: UppInstallation | undefined;
 export let activeAssembly: Assembly | undefined;
 export let activeMainPackage: string | undefined;
 export let activePackageDescription: string | undefined;
@@ -26,6 +28,7 @@ export function getActiveState(): { assName: string; mainPkg: string } | undefin
   return { assName: activeAssembly.name, mainPkg: activeMainPackage };
 }
 
+export function setActiveInstallation(inst: UppInstallation | undefined) { activeInstallation = inst; }
 export function setActiveAssembly(ass: Assembly | undefined) { activeAssembly = ass; }
 export function setActiveMainPackage(pkg: string | undefined) { activeMainPackage = pkg; }
 export function setActivePackageDescription(desc: string | undefined) { activePackageDescription = desc; }
@@ -59,12 +62,22 @@ export function updateStatusBar() {
   const outputDirPath = activeAssembly && activeMainPackage ? resolveOutputDir(activeMainPackage) : undefined;
   const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeAssembly.name, activeMainPackage) : undefined;
   const debugCmdText = cfg.get<string>('debugCommand', '');
-  stateProvider?.refresh(activeAssembly, activeMainPackage, isRunning, activePackageDescription, activePackageUppFile, isDebugging, outputDirPath, debugOutputDirPath, debugCmdText);
+  stateProvider?.refresh(activeInstallation, activeAssembly, activeMainPackage, isRunning, activePackageDescription, activePackageUppFile, isDebugging, outputDirPath, debugOutputDirPath, debugCmdText);
 }
 
 // ─── Restore Persisted State ─────────────────────────────────────────────────
 
 export function restoreState() {
+  const cfg = vscode.workspace.getConfiguration('upp');
+
+  const savedInstallPath: string = cfg.get('activeInstallation', '');
+  if (savedInstallPath && fs.existsSync(savedInstallPath)) {
+    const all = scanInstallations();
+    activeInstallation = all.find(i => i.path === savedInstallPath) ?? undefined;
+  } else {
+    activeInstallation = undefined;
+  }
+
   let savedAssPath = '';
   let savedPkg     = '';
 

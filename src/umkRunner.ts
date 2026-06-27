@@ -15,6 +15,7 @@ export interface UmkOptions {
   action: UmkAction;
   outputChannel: vscode.OutputChannel;
   showOutput?: 'always' | 'auto' | 'never';
+  uppEnv?: string;       // UPP env var value (installation path)
 }
 
 /**
@@ -84,8 +85,13 @@ export function runUmk(opts: UmkOptions): Promise<void> {
 
     let settled = false;
 
+    const env = { ...process.env };
+    if (opts.uppEnv) {
+      env.UPP = opts.uppEnv;
+    }
+
     const proc = cp.spawn(opts.umkPath, args, {
-      env: process.env,
+      env,
       shell: false,
     });
 

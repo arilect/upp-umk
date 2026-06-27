@@ -31,6 +31,8 @@
     "onCommand:upp.build",
     "onCommand:upp.run",
     "onCommand:upp.rebuild",
+    "onCommand:upp.selectInstallation",
+    "onCommand:upp.scanInstallations",
     "onCommand:upp.selectAssembly",
     "onCommand:upp.selectPackage",
     "onCommand:upp.selectConfig",
@@ -95,6 +97,11 @@
         "command": "upp.rebuild",
         "title": "UPP: Rebuild All (-a)",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "upp.selectInstallation",
+        "title": "UPP: Select U++ Installation",
+        "icon": "$(versions)"
       },
       {
         "command": "upp.selectAssembly",
@@ -194,6 +201,17 @@
     "configuration": {
       "title": "Ultimate++ UMK",
       "properties": {
+        "upp.activeInstallation": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the active U++ installation (directory containing uppsrc/, umk.exe). Set via UPP: Select U++ Installation."
+        },
+        "upp.installationsPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["~"],
+          "description": "Directories to scan for upp-* U++ installations. Use ~ for home directory."
+        },
         "upp.varDir": {
           "type": "string",
           "default": "",
@@ -265,7 +283,7 @@
         "upp.terminalApp": {
           "type": "string",
           "default": "",
-          "description": "Terminal emulator to run programs in. Leave empty to auto-detect from $TERMINAL, $TERM_PROGRAM, VTE (gnome-terminal), XDG settings, or fall back to xterm."
+          "description": "Terminal emulator to run programs in. Leave empty to auto-detect ($TERMINAL, $TERM_PROGRAM, XDG settings on Linux; %COMSPEC% on Windows)."
         },
         "upp.outPath": {
           "type": "string",
