@@ -143,55 +143,34 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
   }
 
   if (process.platform === 'win32') {
-    if (openTerminal) {
-      // Open a new console window that stays visible (via start with /k)
-      const cmdLine = [umkPath, ...args].map(a => winQuote(a)).join(' ');
-      const child = spawn('cmd.exe', ['/c', `start "UPP" cmd.exe /k ${cmdLine}`], {
+    // Spawn cmd.exe directly with /k (keep open) or /c (close after).
+    // Passing args as separate array elements avoids Node.js's \"-escaping
+    // inside the command string, which cmd.exe cannot parse.
+    const child = spawn(
+      'cmd.exe',
+      [openTerminal ? '/k' : '/c', umkPath, ...args],
+      {
         cwd: cwd || undefined,
         env: mergedEnv,
         detached: true,
         stdio: 'ignore',
-      });
-      setActiveRunProcess(child);
-      setIsRunning(true);
+      },
+    );
+    setActiveRunProcess(child);
+    setIsRunning(true);
+    updateStatusBar();
+    child.on('exit', () => {
+      setActiveRunProcess(undefined);
+      setIsRunning(false);
       updateStatusBar();
-      child.on('exit', () => {
-        setActiveRunProcess(undefined);
-        setIsRunning(false);
-        updateStatusBar();
-      });
-      child.on('error', (err) => {
-        vscode.window.showErrorMessage(`UPP: Failed to launch terminal: ${err.message}`);
-        setActiveRunProcess(undefined);
-        setIsRunning(false);
-        updateStatusBar();
-      });
-      child.unref();
-    } else {
-      // Run silently (outputConsole: never) – no visible window
-      const cmdLine = [umkPath, ...args].map(a => winQuote(a)).join(' ');
-      const child = spawn('cmd.exe', ['/c', cmdLine], {
-        cwd: cwd || undefined,
-        env: mergedEnv,
-        detached: true,
-        stdio: 'ignore',
-      });
-      setActiveRunProcess(child);
-      setIsRunning(true);
+    });
+    child.on('error', (err) => {
+      vscode.window.showErrorMessage(`UPP: Failed to launch terminal: ${err.message}`);
+      setActiveRunProcess(undefined);
+      setIsRunning(false);
       updateStatusBar();
-      child.on('exit', () => {
-        setActiveRunProcess(undefined);
-        setIsRunning(false);
-        updateStatusBar();
-      });
-      child.on('error', (err) => {
-        vscode.window.showErrorMessage(`UPP: Run failed: ${err.message}`);
-        setActiveRunProcess(undefined);
-        setIsRunning(false);
-        updateStatusBar();
-      });
-      child.unref();
-    }
+    });
+    child.unref();
     return;
   }
 

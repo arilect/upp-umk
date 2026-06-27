@@ -151,7 +151,7 @@ function buildHtml(opts: RunOptions): string {
   <div class="field">
     <label for="runCwd">Working Directory</label>
     <input type="text" id="runCwd" value="${esc(opts.runCwd)}" placeholder="build output dir (default)" />
-    <div class="hint">Leave empty to use the build output directory (~/.cache/upp.out/... or %LOCALAPPDATA%/upp.out/... on Windows).</div>
+    <div class="hint">Leave empty to use the build output directory (auto-detected from the U++ installation).</div>
   </div>
 
   <div class="section">Environment Variables</div>
