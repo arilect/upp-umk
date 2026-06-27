@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { Assembly } from './assemblyParser';
+import { Assembly, getDefaultVarDirs } from './assemblyParser';
 
 export function showNewAssemblyPanel(
   existingAssemblies: Assembly[],
@@ -47,7 +47,7 @@ export function showNewAssemblyPanel(
 
       // Resolve .var file path
       const cfg = vscode.workspace.getConfiguration('upp');
-      const varDir: string = cfg.get('varDir', '') || path.join(os.homedir(), '.config', 'u++', 'theide');
+      const varDir: string = cfg.get('varDir', '') || getDefaultVarDirs()[0];
       const varPath = path.join(varDir, `${name}.var`);
 
       if (fs.existsSync(varPath)) {

@@ -115,6 +115,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
 
     const cppStandard: string = cfg.get('cppStandard', '') || 'c++17 (default)';
     const newProjectCmd: vscode.Command = { command: 'upp.newPackage', title: 'New Package' };
+    const scanVarFilesCmd: vscode.Command = { command: 'upp.scanVarFiles', title: 'Scan for Assemblies' };
     const cppStandardCmd: vscode.Command = {
       command:   'workbench.action.openWorkspaceSettings',
       title:     'Edit cppStandard',
@@ -127,6 +128,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
 
     const items: UppItem[] = [
       new UppItem('New Package', '', newProjectCmd),
+      new UppItem('Scan for Assemblies', '$(search)', scanVarFilesCmd),
       new UppItem('Assembly', assemblyName,  selectCmd),
       new UppItem('Package',  packageName,   selectPkgCmd),
       new UppItem('Description', this.packageDescription || '(click to set)', {

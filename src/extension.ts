@@ -12,6 +12,8 @@ import {
   activeAssembly, activeMainPackage, setIsRunning,
   setIsDebugging, debugTerminal, setDebugTerminal,
   activeRunProcess, setActiveRunProcess,
+  setActiveAssembly, setActiveMainPackage,
+  setActivePackageDescription, setActivePackageUppFile,
   restoreState, updateStatusBar, getActiveState,
 } from './state';
 import { UppStateProvider } from './sidebarProvider';
@@ -25,7 +27,7 @@ import {
 } from './panels';
 import { showBuildMethodPanel } from './buildMethodPanel';
 import { showRunOptionsPanel } from './runOptionsPanel';
-import { findBuildMethods } from './assemblyParser';
+import { findBuildMethods, scanVarFiles } from './assemblyParser';
 
 // ─── Activation ──────────────────────────────────────────────────────────────
 
@@ -350,7 +352,36 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       showBuildMethodPanel(bm.filePath);
     }),
-    vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel())
+    vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel()),
+    vscode.commands.registerCommand('upp.scanVarFiles', async () => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      const scanDirs: string[] = cfg.get('scanDirs', ['~']);
+      const assemblies = scanVarFiles(scanDirs);
+
+      if (assemblies.length === 0) {
+        vscode.window.showWarningMessage('UPP: No .var assembly files found in scanned directories.');
+        return;
+      }
+
+      const picked = await vscode.window.showQuickPick(
+        assemblies.map(a => ({
+          label: a.name,
+          description: a.filePath,
+          detail: a.nests.length > 0 ? a.nests.join('; ') : undefined,
+          assembly: a,
+        })),
+        { placeHolder: 'Select an assembly to activate' }
+      );
+
+      if (!picked) return;
+
+      setActiveAssembly(picked.assembly);
+      setActiveMainPackage(undefined);
+      setActivePackageDescription(undefined);
+      setActivePackageUppFile(undefined);
+      updateStatusBar();
+      vscode.window.showInformationMessage(`UPP: Assembly "${picked.assembly.name}" activated from scan.`);
+    })
   );
 
   context.subscriptions.push(

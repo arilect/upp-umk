@@ -53,17 +53,72 @@ export function parseAssembly(varPath: string): Assembly {
 }
 
 /**
+ * Return platform-appropriate default directories for .var assembly files.
+ */
+export function getDefaultVarDirs(): string[] {
+  const home = os.homedir();
+  const platform = process.platform;
+  if (platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+    return [
+      path.join(appData, 'U++', 'theide'),          // modern Windows
+      path.join(home, 'upp', 'theide'),              // legacy Windows
+    ];
+  }
+  if (platform === 'darwin') {
+    return [
+      path.join(home, 'Library', 'Application Support', 'U++', 'theide'), // modern macOS
+      path.join(home, '.config', 'u++', 'theide'),   // XDG fallback
+      path.join(home, '.upp', 'theide'),              // legacy
+    ];
+  }
+  // Linux / others
+  return [
+    path.join(home, '.config', 'u++', 'theide'),     // XDG (modern)
+    path.join(home, '.upp', 'theide'),                // legacy
+    path.join(home, '.upp', 'umk'),                   // legacy
+  ];
+}
+
+/**
+ * Return platform-appropriate default directories for .bm build method files.
+ */
+export function getDefaultBmDirs(): string[] {
+  const home = os.homedir();
+  const platform = process.platform;
+  if (platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+    return [
+      path.join(appData, 'U++', 'theide'),            // modern Windows
+      path.join(appData, 'U++', 'umk'),               // modern Windows
+      path.join(home, 'upp', 'theide'),               // legacy Windows
+    ];
+  }
+  if (platform === 'darwin') {
+    return [
+      path.join(home, 'Library', 'Application Support', 'U++', 'theide'), // modern macOS
+      path.join(home, 'Library', 'Application Support', 'U++', 'umk'),    // modern macOS
+      path.join(home, '.config', 'u++', 'theide'),
+      path.join(home, '.config', 'u++', 'umk'),
+      path.join(home, '.upp', 'theide'),
+    ];
+  }
+  // Linux / others
+  return [
+    path.join(home, '.config', 'u++', 'theide'),
+    path.join(home, '.config', 'u++', 'umk'),
+    path.join(home, '.upp', 'theide'),
+  ];
+}
+
+/**
  * Find all .var assembly files.
- * Checks upp.varDir setting first, then standard locations.
+ * Checks upp.varDir setting first, then platform-appropriate default locations.
  */
 export function findAssemblies(varDir?: string): Assembly[] {
   const searchDirs = varDir?.trim()
     ? [varDir.trim()]
-    : [
-        path.join(os.homedir(), '.config', 'u++', 'theide'), // XDG (modern U++)
-        path.join(os.homedir(), '.upp', 'theide'),            // legacy
-        path.join(os.homedir(), '.upp', 'umk'),               // legacy
-      ];
+    : getDefaultVarDirs();
 
   const results: Assembly[] = [];
   const seen = new Set<string>();
@@ -83,6 +138,60 @@ export function findAssemblies(varDir?: string): Assembly[] {
       seen.add(name);
       results.push(parseAssembly(path.join(dir, entry.name)));
     }
+  }
+
+  return results;
+}
+
+/**
+ * Recursively find all files matching a given extension under one or more directories.
+ * Skips common large/cache dirs (node_modules, .git, .cache, __pycache__, .svn, .hg).
+ * Resolves ~ to the user's home directory.
+ * Returns absolute file paths.
+ */
+export function findFilesRecursive(dirs: string[], ext: string): string[] {
+  const results: string[] = [];
+  const skipDirs = new Set(['node_modules', '.git', '.cache', '__pycache__', '.svn', '.hg']);
+
+  for (const rawDir of dirs) {
+    const dir = rawDir.startsWith('~') ? path.join(os.homedir(), rawDir.slice(1)) : rawDir;
+    if (!fs.existsSync(dir)) continue;
+
+    const stack: string[] = [dir];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      let entries: fs.Dirent[];
+      try { entries = fs.readdirSync(current, { withFileTypes: true }); }
+      catch { continue; }
+
+      for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          if (!skipDirs.has(entry.name)) stack.push(fullPath);
+        } else if (entry.isFile() && entry.name.endsWith(ext)) {
+          results.push(fullPath);
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Recursively scan directories for .var assembly files via findFilesRecursive().
+ * Returns deduplicated assemblies (first occurrence of each name wins).
+ */
+export function scanVarFiles(dirs: string[]): Assembly[] {
+  const files = findFilesRecursive(dirs, '.var');
+  const results: Assembly[] = [];
+  const seen = new Set<string>();
+
+  for (const filePath of files) {
+    const name = path.basename(filePath, '.var');
+    if (seen.has(name)) continue;
+    seen.add(name);
+    results.push(parseAssembly(filePath));
   }
 
   return results;
@@ -439,11 +548,7 @@ export function parseMainConfigs(uppFilePath: string): string[] {
 export function findBuildMethods(varDir?: string): { name: string; filePath: string }[] {
   const searchDirs = varDir?.trim()
     ? [varDir.trim()]
-    : [
-        path.join(os.homedir(), '.config', 'u++', 'theide'),
-        path.join(os.homedir(), '.config', 'u++', 'umk'),
-        path.join(os.homedir(), '.upp', 'theide'),
-      ];
+    : getDefaultBmDirs();
 
   const results: { name: string; filePath: string }[] = [];
   const seen = new Set<string>();

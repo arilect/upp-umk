@@ -197,7 +197,13 @@
         "upp.varDir": {
           "type": "string",
           "default": "",
-          "description": "Directory containing U++ .var assembly files. Defaults to ~/.config/u++/theide/ (modern) or ~/.upp/theide/ (legacy)."
+          "description": "Directory containing U++ .var assembly files. Defaults: Linux ~/.config/u++/theide/, macOS ~/Library/Application Support/U++/theide/, Windows %APPDATA%\\U++\\theide\\."
+        },
+        "upp.scanDirs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["~"],
+          "description": "Directories to recursively scan for .var assembly files. Use ~ for home directory. Use the 'Scan for Assemblies' button in the UPP sidebar to trigger a scan."
         },
         "upp.workspacesDir": {
           "type": "string",
