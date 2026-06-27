@@ -69,11 +69,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (!workspacesDir) {
     const choice = await vscode.window.showInformationMessage(
-      'UPP: Set "upp.workspacesDir" to enable workspace management.\n' +
-      'Workspaces will be created as subdirectories for each assembly: ~/.vscode/u++/workspaces/',
-      'Open Settings', 'Later'
+      'UPP: Configure workspace directory to enable workspace management.\n' +
+      'You can change the location later in settings, but it will be set automatically to: ~/.vscode/workspaces/',
+      'Set Automatically', 'Open Settings', 'Later'
     );
-    if (choice === 'Open Settings') {
+    if (choice === 'Set Automatically') {
+      const dir = path.join(os.homedir(), '.vscode', 'workspaces');
+      await cfg.update('workspacesDir', dir, vscode.ConfigurationTarget.Global);
+    } else if (choice === 'Open Settings') {
       await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:aris.upp-umk');
     }
   }
