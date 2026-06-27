@@ -139,12 +139,15 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
   if (process.platform === 'win32') {
     // Use VS Code's integrated terminal — avoids all cmd.exe quoting issues
     // and lets the user select/copy output directly.
+    const binaryName = path.win32.basename(umkPath);
     const cmdLine = [umkPath, ...args].join(' ');
     const terminal = vscode.window.createTerminal({
       name: 'UPP Run',
       cwd: cwd || undefined,
       env: mergedEnv as { [key: string]: string },
     });
+    terminal.sendText(`echo Binary: ${binaryName}`);
+    terminal.sendText(`echo Full path: ${umkPath}`);
     terminal.sendText(cmdLine);
     terminal.show();
     setActiveRunTerminal(terminal);
@@ -250,7 +253,7 @@ export async function doAction(action: UmkAction) {
     return;
   }
 
-  const showOutput = cfg.get<'always' | 'auto' | 'never'>('outputConsole', 'auto');
+  const showBuildOutput: 'always' | 'auto' | 'never' = 'always';
 
   await vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
@@ -269,7 +272,7 @@ export async function doAction(action: UmkAction) {
         outPath,
         action,
         outputChannel,
-        showOutput,
+        showOutput: showBuildOutput,
         uppEnv: activeInstallation?.path,
       });
       progress.report({ increment: 100, message: 'Done' });
