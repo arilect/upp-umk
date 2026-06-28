@@ -201,7 +201,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.run',                () => doAction('run')),
     vscode.commands.registerCommand('upp.copyRunPath', () => {
       const cfg = vscode.workspace.getConfiguration('upp');
-      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''));
+      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''), cfg.get('buildFlags', ''));
       if (binaryPath) {
         vscode.env.clipboard.writeText(binaryPath);
         vscode.window.showInformationMessage(`UPP: Copied to clipboard: ${binaryPath}`);
@@ -278,7 +278,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''));
+      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''), cfg.get('buildFlags', ''));
       if (!fs.existsSync(binaryPath)) {
         vscode.window.showErrorMessage(`UPP: Debug binary not found at "${binaryPath}". Build the project first and verify the output path.`);
         return;
@@ -430,7 +430,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('UPP: No active assembly/package selected.');
         return;
       }
-      const outputDir = path.dirname(resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', '')));
+      const outputDir = path.dirname(resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''), cfg.get('buildFlags', '')));
       if (fs.existsSync(outputDir)) {
         vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
       } else {

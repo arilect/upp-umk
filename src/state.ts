@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
-import { Assembly, parseAssembly, parseUppFile } from './assemblyParser';
+import { Assembly, parseAssembly, parseUppFile, parseBmFile, findBuildMethods } from './assemblyParser';
 import { UppStateProvider } from './sidebarProvider';
-import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
+import { resolveDebugOutputDir, computeOutputVariantDir, computeBinaryPath } from './outputDir';
 import { UppInstallation, scanInstallations } from './installations';
 
 export function killProcess(proc: cp.ChildProcess | undefined): void {
@@ -72,8 +72,18 @@ export function updateStatusBar() {
   }
   statusBarItem.show();
   const cfg = vscode.workspace.getConfiguration('upp');
+  const buildMethod = cfg.get<string>('buildMethod', '');
+  const buildFlags = cfg.get<string>('buildFlags', '');
+  const configurationFlag = cfg.get<string>('configurationFlag', '');
+  const varDir = cfg.get<string>('varDir', '');
+  let methodVars = undefined;
+  if (buildMethod) {
+    const bms = findBuildMethods(varDir);
+    const bm = bms.find(b => b.name === buildMethod || b.filePath === buildMethod);
+    if (bm) methodVars = parseBmFile(bm.filePath);
+  }
   const outputDirPath = activeAssembly && activeMainPackage
-    ? path.dirname(resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', '')))
+    ? computeOutputVariantDir(activeInstallation, activeAssembly, activeMainPackage, buildMethod, buildFlags, configurationFlag, methodVars)
     : undefined;
   const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
   const debugCmdText = cfg.get<string>('debugCommand', '');
