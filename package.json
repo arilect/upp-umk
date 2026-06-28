@@ -2,7 +2,7 @@
   "name": "upp-umk",
   "displayName": "U++ (formerly Ultimate++) Integration",
   "description": "Build, run, and manage U++ (Ultimate++) assemblies and packages via the umk command-line tool",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "license": "MIT",
   "repository": {
     "type": "git",
