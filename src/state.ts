@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import { Assembly, parseAssembly, parseUppFile } from './assemblyParser';
 import { UppStateProvider } from './sidebarProvider';
-import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
+import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { UppInstallation, scanInstallations } from './installations';
 
 export function killProcess(proc: cp.ChildProcess | undefined): void {
@@ -73,7 +73,7 @@ export function updateStatusBar() {
   statusBarItem.show();
   const cfg = vscode.workspace.getConfiguration('upp');
   const outputDirPath = activeAssembly && activeMainPackage
-    ? path.dirname(resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage))
+    ? path.dirname(resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', '')))
     : undefined;
   const debugOutputDirPath = activeAssembly && activeMainPackage ? resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage) : undefined;
   const debugCmdText = cfg.get<string>('debugCommand', '');

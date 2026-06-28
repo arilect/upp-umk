@@ -8,7 +8,7 @@ import {
   setIsRunning, setActiveRunProcess, setActiveRunTerminal, updateStatusBar,
 } from './state';
 import { selectAssembly } from './panels';
-import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
+import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
 function effectiveBuildFlags(cfg: vscode.WorkspaceConfiguration): string {
   const raw: string = cfg.get('buildFlags', '');
   const stripped = raw.split('').filter(c => c !== 's' && c !== 'S').join('');
-  const mode: string = cfg.get('linkMode', 'use-shared');
+  const mode: string = cfg.get('linkMode', 'all-static');
   let linkFlag = '';
   if (mode === 'use-shared') linkFlag = 's';
   else if (mode === 'all-shared') linkFlag = 'S';
@@ -150,6 +150,39 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
     setActiveRunTerminal(terminal);
     setIsRunning(true);
     updateStatusBar();
+
+    // Poll for process exit — VS Code terminals don't expose the child process,
+    // so we check if the binary is still running via tasklist.
+    const binName = path.basename(umkPath);
+    const poll = setInterval(() => {
+      try {
+        const result = require('child_process').execSync(
+          `tasklist /FI "IMAGENAME eq ${binName}" /FO CSV /NH`,
+          { encoding: 'utf8', timeout: 3000 }
+        );
+        if (!result.includes(binName)) {
+          clearInterval(poll);
+          setIsRunning(false);
+          updateStatusBar();
+        }
+      } catch {
+        // tasklist failed — assume process exited
+        clearInterval(poll);
+        setIsRunning(false);
+        updateStatusBar();
+      }
+    }, 2000);
+
+    // Stop polling if terminal is disposed
+    const disposeListener = vscode.window.onDidCloseTerminal(t => {
+      if (t === terminal) {
+        clearInterval(poll);
+        setIsRunning(false);
+        updateStatusBar();
+        disposeListener.dispose();
+      }
+    });
+
     return;
   }
 
@@ -229,7 +262,7 @@ export async function doAction(action: UmkAction) {
 
     if (process.platform === 'win32') {
       // Windows: run the compiled binary directly (umk + "!" doesn't work reliably)
-      const binaryPath = resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage);
+      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, buildMethod);
       if (!binaryPath || !fs.existsSync(binaryPath)) {
         vscode.window.showErrorMessage(`UPP: Binary not found at "${binaryPath}". Build the project first.`);
         return;

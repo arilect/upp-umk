@@ -1,13 +1,16 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { Assembly } from './assemblyParser';
+import { Assembly, findBuildMethods } from './assemblyParser';
 import { UppInstallation } from './installations';
+import { resolveBinaryPath } from './outputDir';
 
 class UppItem extends vscode.TreeItem {
-  constructor(label: string, description: string, command?: vscode.Command) {
-    super(label, vscode.TreeItemCollapsibleState.None);
+  children?: UppItem[];
+  constructor(label: string, description: string, command?: vscode.Command, collapsible = vscode.TreeItemCollapsibleState.None, contextValue?: string) {
+    super(label, collapsible);
     this.description = description;
     if (command) this.command = command;
+    if (contextValue) this.contextValue = contextValue;
   }
 }
 
@@ -57,7 +60,8 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
 
   getTreeItem(item: UppItem): vscode.TreeItem { return item; }
 
-  getChildren(): UppItem[] {
+  getChildren(element?: UppItem): UppItem[] {
+    if (element?.children) return element.children;
     const cfg  = vscode.workspace.getConfiguration('upp');
     const none = '—';
 
@@ -94,7 +98,7 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
     const assemblyName  = this.assembly?.name ?? none;
     const packageName   = this.mainPackage ? path.basename(this.mainPackage) : none;
     const method        = cfg.get<string>('buildMethod', '') || none;
-    const linkMode      = cfg.get<string>('linkMode', 'use-shared');
+    const linkMode      = cfg.get<string>('linkMode', 'all-static');
     const linkModeLabel = linkMode === 'all-static' ? 'All Static' : linkMode === 'use-shared' ? 'Use Shared (-s)' : 'All Shared (-S)';
     const buildFlags    = cfg.get<string>('buildFlags',  '');
     const outputLabel   = buildFlags.includes('r') ? 'Release' : 'Debug';
@@ -144,15 +148,33 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
     ];
 
     items.push(
-      new UppItem('Method',   method,        selectMethodCmd),
-      new UppItem('Link Mode', linkModeLabel, selectLinkModeCmd),
-      new UppItem('Edit Method', 'settings', { command: 'upp.editBuildMethod', title: 'Edit Build Method' }),
+      (() => {
+        const varDir = cfg.get<string>('varDir', '');
+        const bmName = cfg.get<string>('buildMethod', '');
+        const bms = findBuildMethods(varDir);
+        const bm = bms.find(b => b.name === bmName || b.filePath === bmName);
+        const bmPath = bm?.filePath ?? '(not found)';
+
+        const selectMethodItem = new UppItem('Select Build Method', method, selectMethodCmd);
+        const editMethodItem = new UppItem('Edit Build Method', 'settings', { command: 'upp.editBuildMethod', title: 'Edit Build Method' });
+        const linkModeItem = new UppItem('Link Mode', linkModeLabel, selectLinkModeCmd);
+        const cppStandardItem = new UppItem('C++ Standard', cppStandard, cppStandardCmd);
+
+        const parent = new UppItem('Full Build Method', bmPath, undefined, vscode.TreeItemCollapsibleState.Expanded);
+        parent.children = [selectMethodItem, editMethodItem, linkModeItem, cppStandardItem];
+        return parent;
+      })(),
       new UppItem('Output',   outputLabel,   selectOutputCmd),
       new UppItem('Config',   extra !== none ? `+${extra}` : none, selectConfigCmd),
-      new UppItem('C++ Standard', cppStandard, cppStandardCmd),
       new UppItem('Generate clang json', '', generateClangJsonCmd),
       new UppItem('Build As', buildCmdText,  buildAction),
-      new UppItem(this.running ? '⏹ Stop' : '▶ Run', this.running ? 'running…' : '', runStopCmd),
+      (() => {
+        const binaryPath = resolveBinaryPath(this.installation, this.assembly, this.mainPackage, cfg.get<string>('buildMethod', ''));
+        const runLabel = this.running ? '⏹ Stop' : '▶ Run';
+        const runDesc  = this.running ? 'running…' : (binaryPath ?? '(not built)');
+        const item = new UppItem(runLabel, runDesc, runStopCmd, vscode.TreeItemCollapsibleState.None, 'runItem');
+        return item;
+      })(),
       new UppItem('Run Options', 'settings', runOptionsCmd),
       new UppItem(this.debugging ? '⏹ Stop Debug' : '🐞 Debug', this.debugging ? 'debugging…' : '', debugStopCmd),
       new UppItem('Debug Cmd', this.debugCmdText || '(not resolved)', debugStopCmd),

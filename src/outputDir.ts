@@ -46,17 +46,34 @@ export function resolveOutputDir(
  * Find the actual binary in the U++ output directory.
  * Searches <base>/<assembly>/ for builder-prefixed subdirs (CLANG.*, GCC.*, etc.)
  * and looks for the binary inside.
+ * When buildMethod is provided, prefers variant dirs that start with it.
  */
 function scanAssemblyDirForBinary(
   assemblyDir: string,
   pkgLeaf: string,
+  buildMethod?: string,
 ): string | undefined {
   if (!fs.existsSync(assemblyDir)) return undefined;
   const entries = fs.readdirSync(assemblyDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (!/^(CLANG|GCC|MSC|ICC|FPC)\./i.test(entry.name)) continue;
+  const builderDirs = entries.filter(e => e.isDirectory() && /^(CLANG|GCC|MSC|ICC|FPC)\w*\./i.test(e.name));
 
+  // Sort: prefer dirs matching current buildMethod, then prefer non-Shared
+  if (buildMethod) {
+    const bm = buildMethod.toUpperCase();
+    builderDirs.sort((a, b) => {
+      const aUp = a.name.toUpperCase();
+      const bUp = b.name.toUpperCase();
+      const aMatch = aUp.startsWith(bm) ? 0 : 1;
+      const bMatch = bUp.startsWith(bm) ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+      // Both match or both don't: prefer non-Shared
+      const aShared = aUp.includes('.SHARED') ? 1 : 0;
+      const bShared = bUp.includes('.SHARED') ? 1 : 0;
+      return aShared - bShared;
+    });
+  }
+
+  for (const entry of builderDirs) {
     const candidate = path.join(assemblyDir, entry.name, pkgLeaf);
 
     // Windows: <variant>/<pkgLeaf>.exe directly in variant dir
@@ -82,17 +99,18 @@ export function findBinaryInOutputDir(
   baseOutputDir: string,
   assemblyName: string,
   pkgLeaf: string,
+  buildMethod?: string,
 ): string | undefined {
   // First try: <base>/<assemblyName>/
   const assemblyDir = path.join(baseOutputDir, assemblyName);
-  const found = scanAssemblyDirForBinary(assemblyDir, pkgLeaf);
+  const found = scanAssemblyDirForBinary(assemblyDir, pkgLeaf, buildMethod);
   if (found) return found;
 
   // Fallback: scan all subdirs of baseOutputDir (assembly name may not match on-disk dir)
   if (!fs.existsSync(baseOutputDir)) return undefined;
   for (const entry of fs.readdirSync(baseOutputDir, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name === assemblyName) continue;
-    const found = scanAssemblyDirForBinary(path.join(baseOutputDir, entry.name), pkgLeaf);
+    const found = scanAssemblyDirForBinary(path.join(baseOutputDir, entry.name), pkgLeaf, buildMethod);
     if (found) return found;
   }
   return undefined;
@@ -119,7 +137,7 @@ export function resolveDebugOutputDir(
   const entries = fs.readdirSync(assemblyDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    if (!/^(CLANG|GCC|MSC|ICC|FPC)\./i.test(entry.name)) continue;
+    if (!/^(CLANG|GCC|MSC|ICC|FPC)\w*\./i.test(entry.name)) continue;
 
     const candidate = path.join(assemblyDir, entry.name, pkgLeaf);
     if (fs.existsSync(candidate)) {
@@ -127,7 +145,7 @@ export function resolveDebugOutputDir(
     }
   }
 
-  const buildDirs = entries.filter(e => e.isDirectory() && /^(CLANG|GCC|MSC|ICC|FPC)\./i.test(e.name));
+  const buildDirs = entries.filter(e => e.isDirectory() && /^(CLANG|GCC|MSC|ICC|FPC)\w*\./i.test(e.name));
   if (buildDirs.length > 0) {
     return path.join(assemblyDir, buildDirs[0].name);
   }
@@ -135,18 +153,28 @@ export function resolveDebugOutputDir(
   return path.join(assemblyDir, 'Debug');
 }
 
-export function resolveDebugBinaryPath(
+export function resolveBinaryPath(
   installation?: UppInstallation,
   assembly?: Assembly,
   activeMainPackage?: string,
+  buildMethod?: string,
 ): string {
   const baseOutputDir = resolveBaseOutputDir(installation, assembly);
   const assName = assembly?.name ?? path.basename(activeMainPackage ?? '');
   const pkgLeaf = path.basename(activeMainPackage ?? '');
 
-  const found = findBinaryInOutputDir(baseOutputDir, assName, pkgLeaf);
+  const found = findBinaryInOutputDir(baseOutputDir, assName, pkgLeaf, buildMethod);
   if (found) return found;
 
   const ext = process.platform === 'win32' ? '.exe' : '';
   return path.join(resolveDebugOutputDir(installation, assembly, activeMainPackage), pkgLeaf + ext);
+}
+
+/** @deprecated Use resolveBinaryPath() instead */
+export function resolveDebugBinaryPath(
+  installation?: UppInstallation,
+  assembly?: Assembly,
+  activeMainPackage?: string,
+): string {
+  return resolveBinaryPath(installation, assembly, activeMainPackage);
 }

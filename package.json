@@ -235,8 +235,8 @@
         },
         "upp.buildMethod": {
           "type": "string",
-          "default": "CLANG",
-          "description": "Build method name (e.g. GCC, CLANG) searched in ~/.config/u++/theide/, or a direct path to a .bm file. umk defaults to CLANG and auto-creates GCC and CLANG on POSIX if they don't exist."
+          "default": "CLANGx64",
+          "description": "Build method name (e.g. GCC, CLANG, CLANGx64) searched in ~/.config/u++/theide/, or a direct path to a .bm file. On non-Windows, this defaults to CLANG at activation."
         },
         "upp.buildFlags": {
           "type": "string",
@@ -246,8 +246,8 @@
         "upp.linkMode": {
           "type": "string",
           "enum": ["all-static", "use-shared", "all-shared"],
-          "default": "use-shared",
-          "description": "Library linking mode. 'all-static' = link everything statically. 'use-shared' = use shared libraries (-s). 'all-shared' = use shared and build as shared (-S)."
+          "default": "all-static",
+          "description": "Library linking mode. 'all-static' = link everything statically (default). 'use-shared' = use shared libraries (-s). 'all-shared' = use shared and build as shared (-S)."
         },
         "upp.configurationFlag": {
           "type": "string",
@@ -320,6 +320,11 @@
           "default": true,
           "description": "Show a 'Switch / Stay' prompt when a new .code-workspace is created or a different one is selected. When disabled, the workspace switches automatically."
         },
+        "upp.workspaceCreationNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show an informational notification when a .code-workspace file is automatically created for an assembly during package selection."
+        },
         "upp.autoMoveWorkspaces": {
           "type": "boolean",
           "default": false,
@@ -349,8 +354,8 @@
         },
         "upp.debuggerPath": {
           "type": "string",
-          "default": "gdb",
-          "description": "Path to gdb executable for debug sessions. Used by Native Debug (webfreak.debug) or cpptools extensions."
+          "default": "",
+          "description": "Path to debugger executable (gdb or lldb-mi). Leave empty to auto-detect from the .bm file's DEBUGGER field and PATH."
         },
         "upp.restartClangdAfterGenerate": {
           "type": "boolean",
@@ -469,6 +474,13 @@
           "command": "upp.run",
           "when": "resourceExtname == .cpp || resourceExtname == .h",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "upp.copyRunPath",
+          "when": "view == upp.stateView && viewItem == runItem",
+          "group": "1_modification"
         }
       ]
     }

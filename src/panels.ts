@@ -46,7 +46,7 @@ export async function selectAssembly() {
       updateStatusBar();
 
       const buildParams = await selectBuildParams(pkgDir);
-      await switchWorkspace(assembly, pkgName, pkgDir, buildParams);
+      await switchWorkspace(assembly, pkgName, pkgDir, uppFile, buildParams);
 
       const cfgInner = vscode.workspace.getConfiguration('upp');
       await syncCompileCommandsCommand(assembly, pkgName, cfgInner);
@@ -86,7 +86,7 @@ export async function selectPackage() {
       updateStatusBar();
 
       await syncBuildCommand();
-      await switchWorkspace(assembly, pkgName, pkgDir, undefined);
+      await switchWorkspace(assembly, pkgName, pkgDir, uppFile, undefined);
 
       await syncCompileCommandsCommand(assembly, pkgName, cfg);
       updateCompileCommandsWatcher(assembly, pkgName, outputChannel);

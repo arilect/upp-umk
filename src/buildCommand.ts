@@ -27,7 +27,7 @@ function stripLinkFlags(flags: string): string {
  * Returns 's', 'S', or '' for static.
  */
 function getLinkModeFlag(cfg: vscode.WorkspaceConfiguration): string {
-  const mode: string = cfg.get('linkMode', 'use-shared');
+  const mode: string = cfg.get('linkMode', 'all-static');
   if (mode === 'use-shared') return 's';
   if (mode === 'all-shared') return 'S';
   return '';
@@ -151,7 +151,7 @@ export async function selectBuildMethod() {
 
 export async function selectLinkMode() {
   const cfg = vscode.workspace.getConfiguration('upp');
-  const current: string = cfg.get('linkMode', 'static');
+  const current: string = cfg.get('linkMode', 'all-static');
 
   const picked = await vscode.window.showQuickPick(
     [

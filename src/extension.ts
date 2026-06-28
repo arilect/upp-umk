@@ -19,7 +19,7 @@ import {
   restoreState, updateStatusBar, getActiveState,
 } from './state';
 import { UppStateProvider } from './sidebarProvider';
-import { resolveDebugOutputDir, resolveDebugBinaryPath } from './outputDir';
+import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode } from './buildCommand';
 import { syncWorkspaces } from './workspace';
 import { doAction, ensureActiveAssembly } from './actions';
@@ -113,6 +113,18 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   }
 
+  // On non-Windows, override build method default if still at Windows default
+  if (process.platform !== 'win32') {
+    const bm = cfg.get<string>('buildMethod', '');
+    if (bm === 'CLANGx64') {
+      await cfg.update('buildMethod', 'CLANG', vscode.ConfigurationTarget.Global);
+    }
+    const lm = cfg.get<string>('linkMode', '');
+    if (lm === 'all-static') {
+      await cfg.update('linkMode', 'use-shared', vscode.ConfigurationTarget.Global);
+    }
+  }
+
   syncBuildCommand().catch(err => console.warn('UPP: syncBuildCommand failed:', err));
 
   // Cleanup stale compile_commands.json from previous sessions
@@ -189,6 +201,14 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('upp.build',              () => doAction('build')),
     vscode.commands.registerCommand('upp.run',                () => doAction('run')),
+    vscode.commands.registerCommand('upp.copyRunPath', () => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''));
+      if (binaryPath) {
+        vscode.env.clipboard.writeText(binaryPath);
+        vscode.window.showInformationMessage(`UPP: Copied to clipboard: ${binaryPath}`);
+      }
+    }),
     vscode.commands.registerCommand('upp.rebuild',            () => doAction('rebuild')),
     vscode.commands.registerCommand('upp.stopRun', () => {
       killProcess(activeRunProcess);
@@ -217,7 +237,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const guiMode      = cfg.get<'auto' | 'gui' | 'console'>('guiMode', 'auto');
 
       const buildFlagsRaw = cfg.get('buildFlags', '').split('').filter((c: string) => c !== 's' && c !== 'S').join('');
-      const linkMode: string = cfg.get('linkMode', 'use-shared');
+      const linkMode: string = cfg.get('linkMode', 'all-static');
       let linkFlag = '';
       if (linkMode === 'use-shared') linkFlag = 's';
       else if (linkMode === 'all-shared') linkFlag = 'S';
@@ -260,12 +280,50 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const binaryPath = resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage);
+      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''));
       if (!fs.existsSync(binaryPath)) {
         vscode.window.showErrorMessage(`UPP: Debug binary not found at "${binaryPath}". Build the project first and verify the output path.`);
         return;
       }
-      const debuggerPath = cfg.get('debuggerPath', 'gdb');
+      const debuggerPath = (() => {
+        // First check user setting
+        const custom = cfg.get<string>('debuggerPath', '');
+        if (custom) return custom;
+
+        // Read DEBUGGER and PATH from the .bm file
+        const { parseBmFile } = require('./assemblyParser') as typeof import('./assemblyParser');
+        const varDir = cfg.get<string>('varDir', '');
+        const { findBuildMethods } = require('./assemblyParser') as typeof import('./assemblyParser');
+        const bms = findBuildMethods(varDir);
+        const bm = bms.find((b: any) => b.name === buildMethod || b.filePath === buildMethod);
+        if (bm) {
+          const data = parseBmFile(bm.filePath);
+          const dbgName = data.DEBUGGER || 'gdb';
+          // If it's already a full path, use it
+          if (path.isAbsolute(dbgName) && fs.existsSync(dbgName)) return dbgName;
+          // Search PATH directories from the .bm file
+          const bmDir = path.dirname(bm.filePath);
+          const searchPaths = [bmDir];
+          if (data.PATH) {
+            data.PATH.split(';').filter(Boolean).forEach((p: string) => searchPaths.push(p));
+          }
+          // Also search the U++ installation bin dirs
+          if (activeInstallation?.path) {
+            searchPaths.push(path.join(activeInstallation.path, 'bin', 'clang', 'bin'));
+            searchPaths.push(path.join(activeInstallation.path, 'bin', 'clang', 'x86_64-w64-mingw32', 'bin'));
+          }
+          for (const dir of searchPaths) {
+            const exe = path.join(dir, dbgName + (process.platform === 'win32' ? '.exe' : ''));
+            if (fs.existsSync(exe)) return exe;
+            // Also try lldb-mi as fallback on Windows
+            if (process.platform === 'win32') {
+              const lldbMi = path.join(dir, 'lldb-mi.exe');
+              if (fs.existsSync(lldbMi)) return lldbMi;
+            }
+          }
+        }
+        return process.platform === 'win32' ? 'lldb-mi' : 'gdb';
+      })();
       const folder = vscode.workspace.workspaceFolders?.[0];
       const cwd = folder?.uri.fsPath ?? path.dirname(binaryPath);
 
@@ -374,7 +432,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage('UPP: No active assembly/package selected.');
         return;
       }
-      const outputDir = path.dirname(resolveDebugBinaryPath(activeInstallation, activeAssembly, activeMainPackage));
+      const outputDir = path.dirname(resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', '')));
       if (fs.existsSync(outputDir)) {
         vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
       } else {

@@ -23,8 +23,16 @@ export class UppTaskProvider implements vscode.TaskProvider {
     const umkPath: string = config.get('umkPath', 'umk');
     const buildMethod: string = config.get('buildMethod', 'CLANG');
     const buildFlags: string = config.get('buildFlags', '');
+    const linkMode: string = config.get('linkMode', 'all-static');
     const configurationFlag: string = config.get('configurationFlag', '');
     const outPath: string    = config.get('outPath', '');
+
+    // Strip s/S from raw flags and apply linkMode (same logic as actions.ts effectiveBuildFlags)
+    const stripped = buildFlags.split('').filter(c => c !== 's' && c !== 'S').join('');
+    let linkFlag = '';
+    if (linkMode === 'use-shared') linkFlag = 's';
+    else if (linkMode === 'all-shared') linkFlag = 'S';
+    const effectiveFlags = stripped + linkFlag;
 
     const actions: Array<{ action: UppTaskDefinition['action']; label: string }> = [
       { action: 'build',   label: 'Build' },
@@ -43,8 +51,8 @@ export class UppTaskProvider implements vscode.TaskProvider {
 
       // Build the shell command exactly as umk expects it
       const flags = action === 'rebuild'
-        ? (buildFlags.includes('a') ? buildFlags : 'a' + buildFlags)
-        : buildFlags;
+        ? (effectiveFlags.includes('a') ? effectiveFlags : 'a' + effectiveFlags)
+        : effectiveFlags;
 
       const args: string[] = [
         active.assName,
