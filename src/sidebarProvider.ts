@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { Assembly, findBuildMethods } from './assemblyParser';
+import { Assembly, findBuildMethods, parseBmFile } from './assemblyParser';
 import { UppInstallation } from './installations';
-import { resolveBinaryPath } from './outputDir';
+import { computeBinaryPath } from './outputDir';
 
 class UppItem extends vscode.TreeItem {
   children?: UppItem[];
@@ -135,19 +135,30 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
       title:   'Open Keybindings',
     };
 
-    const items: UppItem[] = [
+    const packageParent = new UppItem('Package', packageName, undefined, vscode.TreeItemCollapsibleState.Expanded);
+    packageParent.children = [
+      new UppItem('Scan for U++ Installations', '', scanInstallationsCmd),
       new UppItem('U++ Installation', this.installation?.label ?? '$(plus) click to set', selectInstallationCmd),
       new UppItem('New Package', '', newProjectCmd),
-      new UppItem('Scan for U++ Installations', '$(search)', scanInstallationsCmd),
-      new UppItem('Assembly', assemblyName,  selectCmd),
-      new UppItem('Package',  packageName,   selectPkgCmd),
+      new UppItem('Select from Assembly', assemblyName,  selectCmd),
       new UppItem('Description', this.packageDescription || '(click to set)', {
         command: 'upp.editDescription',
         title: 'Edit Description',
       }),
     ];
 
+    const items: UppItem[] = [
+      packageParent,
+    ];
+
+    const makeSeparator = () => {
+      const s = new UppItem('──────────────────────', '', undefined);
+      s.iconPath = new vscode.ThemeIcon('blank');
+      return s;
+    };
+
     items.push(
+      makeSeparator(),
       (() => {
         const varDir = cfg.get<string>('varDir', '');
         const bmName = cfg.get<string>('buildMethod', '');
@@ -169,7 +180,17 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
       new UppItem('Generate clang json', '', generateClangJsonCmd),
       new UppItem('Build As', buildCmdText,  buildAction),
       (() => {
-        const binaryPath = resolveBinaryPath(this.installation, this.assembly, this.mainPackage, cfg.get<string>('buildMethod', ''));
+        const varDir = cfg.get<string>('varDir', '');
+        const bmName = cfg.get<string>('buildMethod', '');
+        const buildFlagsVal = cfg.get<string>('buildFlags', '');
+        const confFlag = cfg.get<string>('configurationFlag', '');
+        let methodVars = undefined;
+        if (bmName) {
+          const bms = findBuildMethods(varDir);
+          const bm = bms.find(b => b.name === bmName || b.filePath === bmName);
+          if (bm) methodVars = parseBmFile(bm.filePath);
+        }
+        const binaryPath = computeBinaryPath(this.installation, this.assembly, this.mainPackage, bmName, buildFlagsVal, confFlag, methodVars);
         const runLabel = this.running ? '⏹ Stop' : '▶ Run';
         const runDesc  = this.running ? 'running…' : (binaryPath ?? '(not built)');
         const item = new UppItem(runLabel, runDesc, runStopCmd, vscode.TreeItemCollapsibleState.None, 'runItem');
@@ -177,10 +198,9 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
       })(),
       new UppItem('Run Options', 'settings', runOptionsCmd),
       new UppItem(this.debugging ? '⏹ Stop Debug' : '🐞 Debug', this.debugging ? 'debugging…' : '', debugStopCmd),
-      new UppItem('Debug Cmd', this.debugCmdText || '(not resolved)', debugStopCmd),
-      new UppItem('Debug Output Dir', this.debugOutputDirPath || '(not resolved)', openDebugOutputDirCmd),
       new UppItem('Output Dir', this.outputDirPath || '(not resolved)', openOutputDirCmd),
       new UppItem('Show Log', 'package log', showLogCmd),
+      makeSeparator(),
       new UppItem('Keybindings', 'ctrl+shift+b build · ctrl+shift+q run · ctrl+shift+d debug · ctrl+shift+x stop · alt+l logs', keybindingsCmd),
       new UppItem('Settings', 'open extension settings', settingsCmd),
       new UppItem('Help',     'README',      helpCmd),
