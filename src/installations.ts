@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as vscode from 'vscode';
 import { Assembly, parseAssembly } from './assemblyParser';
 
 export interface UppInstallation {
@@ -10,23 +11,32 @@ export interface UppInstallation {
 }
 
 function findUppRoots(): string[] {
-  const home = os.homedir();
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const rawPaths = cfg.get<string[]>('installationsPaths', ['~']);
   const roots: string[] = [];
 
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(home, { withFileTypes: true });
-  } catch {
-    return roots;
+  const scanDirs: string[] = [];
+  for (const p of rawPaths) {
+    const resolved = p === '~' ? os.homedir() : p.replace(/^~(?=\/|\\|$)/, os.homedir());
+    scanDirs.push(resolved);
   }
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (!entry.name.startsWith('upp-')) continue;
-    const candidate = path.join(home, entry.name, 'upp');
-    if (!fs.existsSync(path.join(candidate, 'uppsrc'))) continue;
-    if (!fs.existsSync(path.join(candidate, 'umk.exe')) && !fs.existsSync(path.join(candidate, 'umk'))) continue;
-    roots.push(candidate);
+  for (const dir of scanDirs) {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (!entry.name.startsWith('upp-')) continue;
+      const candidate = path.join(dir, entry.name, 'upp');
+      if (!fs.existsSync(path.join(candidate, 'uppsrc'))) continue;
+      if (!fs.existsSync(path.join(candidate, 'umk.exe')) && !fs.existsSync(path.join(candidate, 'umk'))) continue;
+      roots.push(candidate);
+    }
   }
 
   return roots;
