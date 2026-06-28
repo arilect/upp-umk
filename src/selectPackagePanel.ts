@@ -41,8 +41,8 @@ export function showSelectPackagePanel(
       if (asm && pkg) {
         const fullAsm = assemblies.find(a => a.name === asm.name)!;
         onSelect(fullAsm, pkg.name, path.dirname(pkg.uppFile), pkg.uppFile, pkg.description || undefined);
-        panel.dispose();
       }
+      panel.dispose();
     } else if (msg.type === 'editAssembly') {
       const asm = assemblies.find(a => a.name === msg.assemblyName);
       if (asm) {

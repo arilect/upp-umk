@@ -30,9 +30,11 @@ export async function persistSetting(key: string, value: string, cfg: vscode.Wor
   });
   if (written) return;
 
+  // cfg is scoped to 'upp', so strip the prefix
+  const unprefixed = key.replace(/^upp\./i, '');
   try {
-    await cfg.update(key, value, vscode.ConfigurationTarget.Workspace);
+    await cfg.update(unprefixed, value, vscode.ConfigurationTarget.Workspace);
   } catch {
-    await cfg.update(key, value, vscode.ConfigurationTarget.Global);
+    await cfg.update(unprefixed, value, vscode.ConfigurationTarget.Global);
   }
 }

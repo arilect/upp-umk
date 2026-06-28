@@ -115,6 +115,29 @@ export async function activate(context: vscode.ExtensionContext) {
 
   syncBuildCommand().catch(err => console.warn('UPP: syncBuildCommand failed:', err));
 
+  // Cleanup stale compile_commands.json from previous sessions
+  // so the C++ extension doesn't show compiler path errors on unrelated actions.
+  if (activeAssembly?.nests) {
+    for (const nest of activeAssembly.nests) {
+      if (!fs.existsSync(nest)) continue;
+      const rootCc = path.join(nest, 'compile_commands.json');
+      if (fs.existsSync(rootCc)) try { fs.unlinkSync(rootCc); } catch {}
+      for (const entry of fs.readdirSync(nest, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const ccPath = path.join(nest, entry.name, 'compile_commands.json');
+        if (fs.existsSync(ccPath)) try { fs.unlinkSync(ccPath); } catch {}
+      }
+    }
+  }
+
+  // Regenerate IntelliSense config to reflect current file state
+  // (removes stale compileCommands references if the file was just deleted)
+  const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+  if (activeAssembly && wsRoot) {
+    updateIntelliSense(activeAssembly, wsRoot, activeMainPackage, cfg.get('buildFlags', ''))
+      .catch(err => console.warn('UPP: updateIntelliSense failed:', err));
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand('upp.selectInstallation', async () => {
       const found = scanInstallations();
@@ -503,20 +526,6 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Cleanup stale compile_commands.json from previous sessions
-  // so the C++ extension doesn't show compiler path errors on unrelated actions.
-  if (activeAssembly?.nests) {
-    for (const nest of activeAssembly.nests) {
-      if (!fs.existsSync(nest)) continue;
-      const rootCc = path.join(nest, 'compile_commands.json');
-      if (fs.existsSync(rootCc)) try { fs.unlinkSync(rootCc); } catch {}
-      for (const entry of fs.readdirSync(nest, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const ccPath = path.join(nest, entry.name, 'compile_commands.json');
-        if (fs.existsSync(ccPath)) try { fs.unlinkSync(ccPath); } catch {}
-      }
-    }
-  }
 }
 
 export function deactivate() {

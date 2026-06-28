@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { findBuildMethods, parseMainConfigs } from './assemblyParser';
 import { activeAssembly, activeMainPackage, activeInstallation, updateStatusBar } from './state';
-import { persistSetting, updateWorkspaceFile } from './utils';
+import { persistSetting } from './utils';
 
 // ─── Build Params Interface ──────────────────────────────────────────────────
 
@@ -142,10 +142,8 @@ export async function selectBuildMethod() {
     cfg.get('outPath', ''),
   );
 
-  updateWorkspaceFile(wsJson => {
-    wsJson.settings['upp.buildMethod']  = chosen;
-    wsJson.settings['upp.buildCommand'] = newCmd;
-  });
+  await persistSetting('upp.buildMethod', chosen, cfg);
+  await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
 
@@ -207,10 +205,8 @@ export async function selectOutput() {
     cfg.get('outPath', ''),
   );
 
-  updateWorkspaceFile(wsJson => {
-    wsJson.settings['upp.buildFlags']   = rawFlags;
-    wsJson.settings['upp.buildCommand'] = newCmd;
-  });
+  await persistSetting('upp.buildFlags', rawFlags, cfg);
+  await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
 
