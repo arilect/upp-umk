@@ -3,3 +3,4 @@ out/
 *.vsix
 .vscode/
 package-lock.json
+.opencode/
