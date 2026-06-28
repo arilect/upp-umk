@@ -6,4 +6,5 @@ tsconfig.json
 **/*.ts
 **/*.map
 node_modules/**
+.opencode/**
 .vscode/**
