@@ -24,12 +24,99 @@ export function buildSettings(
   return s;
 }
 
+// ─── Workspace file helpers ─────────────────────────────────────────────────
+
+/**
+ * Return the expected .code-workspace file path for a package.
+ * Uses upp.workspacesDir if configured, otherwise falls back to the
+ * directory alongside the .var file.
+ */
+export function getWorkspaceFilePath(assembly: Assembly, pkgName: string): string {
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const workspacesDir = cfg.get<string>('workspacesDir', '') ?? '';
+  const safeName = pkgName.replace(/[/\\]/g, '-');
+  if (workspacesDir) {
+    return path.join(workspacesDir, `${safeName}.code-workspace`);
+  }
+  return path.join(path.dirname(assembly.filePath), `${safeName}.code-workspace`);
+}
+
+/**
+ * Create or update the .code-workspace file for a package so that it
+ * contains the package directory as a workspace folder and the latest
+ * assembly/package/build settings.
+ *
+ * Returns the absolute path to the workspace file, or undefined on failure.
+ */
+export function ensureWorkspaceFile(
+  assembly: Assembly,
+  pkgName: string,
+  pkgDir: string,
+  uppFile: string,
+  buildParams?: { buildMethod: string; configurationFlag: string; buildCommand: string },
+): string | undefined {
+  const wsPath = getWorkspaceFilePath(assembly, pkgName);
+  const wsDir = path.dirname(wsPath);
+
+  try {
+    if (!fs.existsSync(wsDir)) {
+      fs.mkdirSync(wsDir, { recursive: true });
+    }
+
+    // Build workspace folders from the .upp file (includes nests)
+    const folders = resolveWorkspaceFolders(uppFile, assembly.nests);
+
+    // Read existing workspace file if present
+    let wsJson: Record<string, any> = { folders: [], settings: {} };
+    if (fs.existsSync(wsPath)) {
+      try {
+        wsJson = JSON.parse(fs.readFileSync(wsPath, 'utf8'));
+      } catch { /* ignore corrupt file — will overwrite */ }
+    }
+
+    // Replace folders with the resolved ones (deduplicate by resolved path)
+    const seen = new Set<string>();
+    wsJson.folders = [];
+    for (const dir of folders) {
+      const resolved = path.resolve(dir);
+      if (!seen.has(resolved)) {
+        seen.add(resolved);
+        wsJson.folders.push({ path: dir });
+      }
+    }
+
+    // Write settings into the workspace file
+    wsJson.settings = wsJson.settings ?? {};
+    wsJson.settings['upp.activeAssembly']    = assembly.filePath;
+    wsJson.settings['upp.activeMainPackage'] = pkgName;
+    if (buildParams) {
+      wsJson.settings['upp.buildMethod']        = buildParams.buildMethod;
+      wsJson.settings['upp.configurationFlag']  = buildParams.configurationFlag;
+      wsJson.settings['upp.buildCommand']       = buildParams.buildCommand;
+    }
+
+    fs.writeFileSync(wsPath, JSON.stringify(wsJson, null, 2), 'utf8');
+    return wsPath;
+  } catch (err) {
+    console.warn(`UPP: Failed to create/update workspace file: ${err}`);
+    return undefined;
+  }
+}
+
 // ─── Workspace Switching ─────────────────────────────────────────────────────
 
 /**
- * Persist assembly/package selection and build params to VS Code settings.
- * Creates a per-package .code-workspace file in workspacesDir if needed,
- * then opens it via vscode.openFolder to fully switch the workspace.
+ * Persist assembly/package selection and build params.
+ *
+ * Creates / updates a per-package .code-workspace file in
+ * `upp.workspacesDir` (or next to the .var file) so that:
+ *
+ *  - Settings are properly isolated per package
+ *  - File → Save Workspace (Ctrl+S) saves to the existing location
+ *    instead of prompting for a save location each time
+ *
+ * The user is offered to switch to the new workspace file on first creation,
+ * respecting `upp.showWorkspaceSwitchNotification`.
  */
 export async function switchWorkspace(
   assembly: Assembly,
@@ -40,82 +127,65 @@ export async function switchWorkspace(
 ): Promise<void> {
   const cfg = vscode.workspace.getConfiguration('upp');
 
-  // Persist assembly/package selection to VS Code settings
-  await persistSetting('upp.activeAssembly', assembly.filePath, cfg);
-  await persistSetting('upp.activeMainPackage', pkgName, cfg);
+  // Detect whether the workspace file already exists (before we write to it)
+  const currentWsFile  = vscode.workspace.workspaceFile;
+  const wsPath         = getWorkspaceFilePath(assembly, pkgName);
+  const wsFileExists   = fs.existsSync(wsPath);
 
-  // Persist build params to VS Code settings
-  if (buildParams) {
-    await persistSetting('upp.buildMethod', buildParams.buildMethod, cfg);
-    await persistSetting('upp.configurationFlag', buildParams.configurationFlag, cfg);
-    await persistSetting('upp.buildCommand', buildParams.buildCommand, cfg);
-  }
+  // Create/update the per-package workspace file
+  const wsCreated = ensureWorkspaceFile(assembly, pkgName, pkgDir, uppFile, buildParams);
 
-  // Compute workspace path from package name
-  const workspacesDir = cfg.get<string>('workspacesDir', '');
-  const safeName = pkgName.replace(/[/\\]/g, '-');
-  const wsPath = workspacesDir
-    ? path.join(workspacesDir, `${safeName}.code-workspace`)
-    : '';
+  // --- Decide whether we need to write to the current session's settings ---
+  const correctWsOpen = !!wsCreated &&
+    currentWsFile?.scheme === 'file' &&
+    path.resolve(currentWsFile.fsPath) === path.resolve(wsPath);
 
-  // Create .code-workspace file if it doesn't exist
-  if (workspacesDir && !fs.existsSync(wsPath)) {
-    try {
-      const folders = resolveWorkspaceFolders(uppFile, assembly.nests);
-      const wsJson: Record<string, any> = {
-        folders: folders.map(dir => ({ path: dir })),
-        settings: buildSettings(assembly, pkgName, buildParams),
-      };
-      if (!fs.existsSync(workspacesDir)) {
-        fs.mkdirSync(workspacesDir, { recursive: true });
-      }
-      fs.writeFileSync(wsPath, JSON.stringify(wsJson, null, 2), 'utf8');
-
-      const showNotification = cfg.get<boolean>('workspaceCreationNotification', true);
-      if (showNotification) {
-        vscode.window.showInformationMessage(
-          `UPP: Workspace created for "${pkgName}" at ${wsPath}`
-        );
-      }
-    } catch (err: any) {
-      vscode.window.showWarningMessage(`UPP: Failed to create workspace: ${err.message}`);
+  if (correctWsOpen) {
+    // The package's own workspace file is already open — settings were
+    // written there by ensureWorkspaceFile, nothing more to do.
+  } else if (currentWsFile?.scheme === 'file') {
+    // A different workspace file is open — do NOT pollute it with this
+    // package's settings.  The per-package workspace file has already
+    // been updated above; the user simply needs to open it to pick up
+    // the settings (offer below).
+  } else {
+    // No workspace file at all — persist to .vscode/settings.json so the
+    // current session works.
+    await persistSetting('upp.activeAssembly', assembly.filePath, cfg);
+    await persistSetting('upp.activeMainPackage', pkgName, cfg);
+    if (buildParams) {
+      await persistSetting('upp.buildMethod', buildParams.buildMethod, cfg);
+      await persistSetting('upp.configurationFlag', buildParams.configurationFlag, cfg);
+      await persistSetting('upp.buildCommand', buildParams.buildCommand, cfg);
     }
   }
 
-  // Update settings in an existing workspace file too
-  if (wsPath && fs.existsSync(wsPath)) {
-    try {
-      const wsJson = JSON.parse(fs.readFileSync(wsPath, 'utf8'));
-      wsJson.settings = buildSettings(assembly, pkgName, buildParams, wsJson.settings);
-      fs.writeFileSync(wsPath, JSON.stringify(wsJson, null, 2), 'utf8');
-    } catch { /* non-fatal */ }
+  // --- Offer to switch to the package's workspace file ---
+  // Only notify when:
+  //   (a) the workspace file was successfully created/updated, AND
+  //   (b) the correct workspace is not already open, AND
+  //   (c) the file didn't exist before (first creation) — to avoid nagging
+  //       every time the user selects a different package in the same assembly.
+  if (wsCreated && !correctWsOpen && !wsFileExists) {
+    logWorkspaces(`Workspace file created: ${wsPath}`);
+    const showNotification = cfg.get<boolean>('workspaceCreationNotification', true);
+
+    const shouldSwitch = showNotification
+      ? await vscode.window.showInformationMessage(
+          `UPP: Workspace created for "${pkgName}". Switch?`,
+          'Switch', 'Stay'
+        ) === 'Switch'
+      : true; // auto-switch when notification disabled
+
+    if (shouldSwitch) {
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(wsPath), false);
+      return; // VSCode reloads the window — no more work to do
+    }
   }
 
-  // Switch to the workspace if not already in it
-  if (wsPath && fs.existsSync(wsPath)) {
-    const wsUri = vscode.Uri.file(wsPath);
-    const currentWs = vscode.workspace.workspaceFile;
-
-    // Already open in this workspace — nothing to do
-    if (currentWs?.scheme === 'file' && path.normalize(currentWs.fsPath) === path.normalize(wsPath)) {
-      return;
-    }
-
-    const showSwitchPrompt = cfg.get<boolean>('showWorkspaceSwitchNotification', true);
-    if (!showSwitchPrompt) {
-      await vscode.commands.executeCommand('vscode.openFolder', wsUri, false);
-      return;
-    }
-
-    const choice = await vscode.window.showInformationMessage(
-      `UPP: Switch to workspace "${safeName}"?`,
-      'Switch', 'Stay'
-    );
-    if (choice === 'Switch') {
-      await vscode.commands.executeCommand('vscode.openFolder', wsUri, false);
-    }
-  } else if (pkgDir && fs.existsSync(pkgDir)) {
-    // Fallback: no workspacesDir configured, just add package folder to current window
+  // --- Switch workspace folder to the selected package's directory ---
+  // (only reached when the user chose Stay or when no ws file was created)
+  if (pkgDir && fs.existsSync(pkgDir)) {
     vscode.workspace.updateWorkspaceFolders(0, vscode.workspace.workspaceFolders?.length ?? 0,
       { uri: vscode.Uri.file(pkgDir) }
     );

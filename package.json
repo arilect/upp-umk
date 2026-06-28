@@ -317,13 +317,18 @@
         },
         "upp.showWorkspaceSwitchNotification": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Show a 'Switch / Stay' prompt when a new .code-workspace is created or a different one is selected. When disabled, the workspace switches automatically."
         },
         "upp.workspaceCreationNotification": {
           "type": "boolean",
           "default": true,
           "description": "Show an informational notification when a .code-workspace file is automatically created for an assembly during package selection."
+        },
+        "upp.workspacesDirPrompted": {
+          "type": "boolean",
+          "default": false,
+          "description": "Internal flag to track whether the user has been prompted to configure a workspace directory."
         },
         "upp.autoMoveWorkspaces": {
           "type": "boolean",
