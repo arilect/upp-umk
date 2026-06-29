@@ -8,17 +8,18 @@ import { UppTaskProvider } from './taskProvider';
 import { syncCompileCommandsCommand, updateCompileCommandsWatcher, doCompileCommandsGeneration, disposeCompileCommandsWatcher } from './compileCommands';
 import {
   outputChannel, setOutputChannel, statusBarItem, setStatusBarItem,
-  setStateProvider, setStateTreeView,
+  setStateProvider,
   activeInstallation,
   activeAssembly, activeMainPackage, setIsRunning,
   setIsDebugging, debugTerminal, setDebugTerminal,
   activeRunProcess, setActiveRunProcess, activeRunTerminal, setActiveRunTerminal, killProcess,
   setActiveAssembly, setActiveMainPackage,
   setActivePackageDescription, setActivePackageUppFile,
+  activePackageDescription, activePackageUppFile,
   setActiveInstallation,
   restoreState, updateStatusBar, getActiveState,
 } from './state';
-import { UppStateProvider } from './sidebarProvider';
+import { UppSidebarProvider } from './sidebarProvider';
 import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode } from './buildCommand';
 import { syncWorkspaces } from './workspace';
@@ -29,6 +30,7 @@ import {
 } from './panels';
 import { showBuildMethodPanel } from './buildMethodPanel';
 import { showRunOptionsPanel } from './runOptionsPanel';
+import { showInstallationsPanel } from './installationsPanel';
 import { findBuildMethods } from './assemblyParser';
 import { scanInstallations, UppInstallation } from './installations';
 
@@ -44,10 +46,9 @@ export async function activate(context: vscode.ExtensionContext) {
   setStatusBarItem(sb);
   context.subscriptions.push(sb);
 
-  const sp = new UppStateProvider();
+  const sp = new UppSidebarProvider();
   setStateProvider(sp);
-  const tv = vscode.window.createTreeView('upp.stateView', { treeDataProvider: sp });
-  setStateTreeView(tv);
+  const tv = vscode.window.registerWebviewViewProvider(UppSidebarProvider.viewType, sp, { webviewOptions: { retainContextWhenHidden: true } });
   context.subscriptions.push(tv);
 
   restoreState();
@@ -62,10 +63,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (activeAssembly) {
     setTimeout(() => {
-      const items = sp.getChildren();
-      if (items.length > 0) {
-        tv.reveal(items[0], { select: false, focus: true }).then(() => {}, () => {});
-      }
+      sp.refresh(activeInstallation, activeAssembly, activeMainPackage, false, activePackageDescription, activePackageUppFile, false, undefined, undefined, undefined);
     }, 500);
   }
 
@@ -496,6 +494,7 @@ export async function activate(context: vscode.ExtensionContext) {
       showBuildMethodPanel(bm.filePath);
     }),
     vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel()),
+    vscode.commands.registerCommand('upp.editInstallations', () => showInstallationsPanel()),
     vscode.commands.registerCommand('upp.scanInstallations', async () => {
       const found = scanInstallations();
       if (found.length === 0) {

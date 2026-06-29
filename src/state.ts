@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
 import { Assembly, parseAssembly, parseUppFile, parseBmFile, findBuildMethods } from './assemblyParser';
-import { UppStateProvider } from './sidebarProvider';
+import { UppSidebarProvider } from './sidebarProvider';
 import { resolveDebugOutputDir, computeOutputVariantDir, computeBinaryPath } from './outputDir';
 import { UppInstallation, scanInstallations } from './installations';
 
@@ -27,8 +27,7 @@ export let activeMainPackage: string | undefined;
 export let activePackageDescription: string | undefined;
 export let activePackageUppFile: string | undefined;
 export let statusBarItem: vscode.StatusBarItem;
-export let stateProvider: UppStateProvider;
-export let stateTreeView: vscode.TreeView<unknown>;
+export let stateProvider: UppSidebarProvider;
 export let activeRunProcess: cp.ChildProcess | undefined;
 export let activeRunTerminal: vscode.Terminal | undefined;
 export let isRunning = false;
@@ -47,8 +46,7 @@ export function setActivePackageDescription(desc: string | undefined) { activePa
 export function setActivePackageUppFile(f: string | undefined) { activePackageUppFile = f; }
 export function setOutputChannel(ch: vscode.OutputChannel) { outputChannel = ch; }
 export function setStatusBarItem(sb: vscode.StatusBarItem) { statusBarItem = sb; }
-export function setStateProvider(sp: UppStateProvider) { stateProvider = sp; }
-export function setStateTreeView(tv: vscode.TreeView<unknown>) { stateTreeView = tv; }
+export function setStateProvider(sp: UppSidebarProvider) { stateProvider = sp; }
 export function setActiveRunProcess(p: cp.ChildProcess | undefined) { activeRunProcess = p; }
 export function setActiveRunTerminal(t: vscode.Terminal | undefined) { activeRunTerminal = t; }
 export function setIsRunning(v: boolean) { isRunning = v; }

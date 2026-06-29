@@ -71,9 +71,9 @@
     "views": {
       "upp-sidebar": [
         {
+          "type": "webview",
           "id": "upp.stateView",
-          "name": "UPP Build Package",
-          "icon": "$(tools)"
+          "name": "UPP Build Package"
         }
       ]
     },
@@ -196,6 +196,10 @@
         "command": "upp.openOutputDir",
         "title": "UPP: Open Output Directory",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "upp.copyRunPath",
+        "title": "UPP: Copy Run Path"
       }
     ],
     "configuration": {
@@ -211,6 +215,17 @@
           "items": { "type": "string" },
           "default": ["~"],
           "description": "Directories to scan for upp-* U++ installations. Use ~ for home directory."
+        },
+        "upp.installationsGlob": {
+          "type": "string",
+          "default": "",
+          "description": "Optional glob pattern to filter directories when scanning for U++ installations (e.g. upp-*, upp*, ultimatepp*). Leave empty to match any directory containing uppsrc/."
+        },
+        "upp.installationsManual": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Manually added U++ installation directories. Must contain uppsrc/."
         },
         "upp.varDir": {
           "type": "string",

@@ -97,7 +97,7 @@ function buildHtml(data: BuildMethodData): string {
   .list-item {
     display: flex; align-items: center; gap: 6px;
     padding: 3px 8px;
-    background: var(--vscode-input-background);
+    background: transparent;
     border: 1px solid var(--vscode-input-border);
     border-radius: 2px;
     font-family: var(--vscode-editor-font-family, monospace);
