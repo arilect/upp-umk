@@ -175,8 +175,8 @@ export class UppStateProvider implements vscode.TreeDataProvider<UppItem>, vscod
         parent.children = [selectMethodItem, editMethodItem, linkModeItem, cppStandardItem];
         return parent;
       })(),
-      new UppItem('Output',   outputLabel,   selectOutputCmd),
-      new UppItem('Config',   extra !== none ? `+${extra}` : none, selectConfigCmd),
+      new UppItem('Output Mode', outputLabel, selectOutputCmd),
+      new UppItem('Config Flags', extra !== none ? `+${extra}` : none, selectConfigCmd),
       new UppItem('Generate clang json', '', generateClangJsonCmd),
       new UppItem('Build As', buildCmdText,  buildAction),
       (() => {
