@@ -76,7 +76,7 @@ function buildHtml(data: BuildMethodData): string {
     overflow-y: auto;
   }
   h2 { margin-bottom: 4px; font-weight: normal; font-size: 1.2em; }
-  .filepath { font-size: 0.8em; opacity: 0.6; margin-bottom: 16px; cursor: pointer; text-decoration: underline; }
+  .filepath { font-size: 1.2em; opacity: 0.6; margin-bottom: 16px; cursor: pointer; text-decoration: underline; }
   .filepath:hover { opacity: 1; }
   .section { font-weight: bold; font-size: 0.9em; margin: 16px 0 8px 0; padding: 6px 0; border-bottom: 1px solid var(--vscode-widget-border); opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
   .field { margin-bottom: 12px; }

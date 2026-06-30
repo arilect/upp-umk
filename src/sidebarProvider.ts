@@ -51,6 +51,9 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
           case 'setCppStandard':
             vscode.commands.executeCommand('upp.setCppStandard', message.value);
             break;
+          case 'setBuildMethod':
+            vscode.commands.executeCommand('upp.setBuildMethod', message.value);
+            break;
         }
       },
       undefined,
@@ -218,6 +221,10 @@ function selectCppStandard(value) {
   closeAllDropdowns();
   vscode.postMessage({ command: 'setCppStandard', value: value });
 }
+function selectBuildMethod(value) {
+  closeAllDropdowns();
+  vscode.postMessage({ command: 'setBuildMethod', value: value });
+}
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
 });
@@ -369,10 +376,15 @@ document.addEventListener('DOMContentLoaded', () => {
   .group-children { padding-left: 8px; }
   .hint {
     font-size: 11px;
-    color: var(--label-fg);
-    padding: 2px 6px 4px;
-    line-height: 1.3;
+    color: var(--label-fg, #999);
+    padding: 4px 6px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    opacity: 0.8;
+    cursor: pointer;
+    border-radius: 4px;
   }
+  .hint:hover { background: var(--row-hover); }
   .dropdown-container {
     position: relative;
     margin: 2px 0;
@@ -505,8 +517,25 @@ document.addEventListener('DOMContentLoaded', () => {
       <span class="value">${this._esc(method)}</span>
     </div>
     <div class="group-children">
-      ${row('Select Method', bmPath, 'upp.selectBuildMethod')}
-      ${row('Edit Method', 'settings', 'upp.editBuildMethod')}
+      <div class="dropdown-container">
+        <button class="dropdown-btn" onclick="toggleDropdown('bm-dropdown')">
+          <span class="label-group">
+            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildMethod' })" title="Edit build method">\u270E</span>
+            <span class="label">Build Method</span>
+          </span>
+          <span class="value">${this._esc(bmName || none)}</span>
+          <span class="chevron">\u25BE</span>
+        </button>
+        <div id="bm-dropdown" class="dropdown-options">
+          ${bms.length > 0 ? bms.map(b => {
+            const isSelected = b.name === bmName || b.filePath === bmName;
+            return `<div class="dropdown-option ${isSelected ? 'selected' : ''}" onclick="selectBuildMethod('${this._esc(b.name)}')">
+              <span>${this._esc(b.name)}</span>
+              ${isSelected ? '<span class="check">\u2713</span>' : ''}
+            </div>`;
+          }).join('') : '<div class="dropdown-option disabled"><span>No build methods found</span></div>'}
+        </div>
+      </div>
       <div class="dropdown-container">
         <button class="dropdown-btn" onclick="toggleDropdown('linkmode-dropdown')">
           <span class="label">Link Mode</span>
@@ -601,7 +630,6 @@ document.addEventListener('DOMContentLoaded', () => {
       })()
     : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
   }
-  ${row('Generate clang json', '', 'upp.generateClangJson')}
   ${row('Build As', buildCmdText, 'upp.build')}
 
   ${separator}
@@ -618,7 +646,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${separator}
 
-  <div class="hint">ctrl+shift+b build &middot; ctrl+shift+q run &middot; ctrl+shift+d debug &middot; ctrl+shift+x stop &middot; alt+l logs</div>
+  ${row('Generate clang json', '', 'upp.generateClangJson')}
+
+  ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'workbench.action.openGlobalKeybindings')}
 
   ${row('Settings', '', 'workbench.action.openWorkspaceSettings')}
   ${row('Help', 'README', 'upp.openHelp')}

@@ -505,6 +505,12 @@ export async function activate(context: vscode.ExtensionContext) {
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('cppStandard', value, vscode.ConfigurationTarget.Workspace);
     }),
+    vscode.commands.registerCommand('upp.setBuildMethod', async (value: string) => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      await cfg.update('buildMethod', value, vscode.ConfigurationTarget.Workspace);
+      await syncBuildCommand();
+      updateStatusBar();
+    }),
     vscode.commands.registerCommand('upp.editInstallations', () => showInstallationsPanel()),
     vscode.commands.registerCommand('upp.scanInstallations', async () => {
       const found = scanInstallations();
