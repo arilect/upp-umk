@@ -583,23 +583,6 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 
-  <div class="dropdown-container">
-    <button class="dropdown-btn" onclick="toggleDropdown('output-dropdown')">
-      <span class="label">Output Mode</span>
-      <span class="value">${this._esc(outputLabel)}</span>
-      <span class="chevron">\u25BE</span>
-    </button>
-    <div id="output-dropdown" class="dropdown-options">
-      <div class="dropdown-option ${outputLabel === 'Debug' ? 'selected' : ''}" onclick="selectOutput('Debug')">
-        <span>Debug</span>
-        ${outputLabel === 'Debug' ? '<span class="check">\u2713</span>' : ''}
-      </div>
-      <div class="dropdown-option ${outputLabel === 'Release' ? 'selected' : ''}" onclick="selectOutput('Release')">
-        <span>Release</span>
-        ${outputLabel === 'Release' ? '<span class="check">\u2713</span>' : ''}
-      </div>
-    </div>
-  </div>
   ${configOptions.length > 0
     ? (() => {
         const currentNormalized = configCurrent.replace(/\s+/g, ',').replace(/,+/g, ',');
@@ -630,6 +613,23 @@ document.addEventListener('DOMContentLoaded', () => {
       })()
     : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
   }
+  <div class="dropdown-container">
+    <button class="dropdown-btn" onclick="toggleDropdown('output-dropdown')">
+      <span class="label">Output Mode</span>
+      <span class="value">${this._esc(outputLabel)}</span>
+      <span class="chevron">\u25BE</span>
+    </button>
+    <div id="output-dropdown" class="dropdown-options">
+      <div class="dropdown-option ${outputLabel === 'Debug' ? 'selected' : ''}" onclick="selectOutput('Debug')">
+        <span>Debug</span>
+        ${outputLabel === 'Debug' ? '<span class="check">\u2713</span>' : ''}
+      </div>
+      <div class="dropdown-option ${outputLabel === 'Release' ? 'selected' : ''}" onclick="selectOutput('Release')">
+        <span>Release</span>
+        ${outputLabel === 'Release' ? '<span class="check">\u2713</span>' : ''}
+      </div>
+    </div>
+  </div>
   ${row('Build As', buildCmdText, 'upp.build')}
 
   ${separator}
