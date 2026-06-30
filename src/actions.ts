@@ -9,6 +9,7 @@ import {
 } from './state';
 import { selectAssembly } from './panels';
 import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
+import { resolveUmkPath } from './utils';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -224,10 +225,7 @@ export async function doAction(action: UmkAction) {
   if (!(await ensureActiveAssembly())) return;
 
   const cfg = vscode.workspace.getConfiguration('upp');
-  const configuredUmk = cfg.get<string>('umkPath', '');
-  const umkPath: string = configuredUmk || (activeInstallation
-    ? path.join(activeInstallation.path, process.platform === 'win32' ? 'umk.exe' : 'umk')
-    : 'umk');
+  const umkPath = resolveUmkPath(cfg, activeInstallation);
 
   const assemblyName = activeAssembly!.name;
   const mainPackage  = activeMainPackage!;

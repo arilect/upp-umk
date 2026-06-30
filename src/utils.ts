@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { UppInstallation } from './installations';
 
 /**
  * Read-modify-write the .code-workspace file in one sync block.
@@ -37,4 +40,13 @@ export async function persistSetting(key: string, value: string, cfg: vscode.Wor
   } catch {
     await cfg.update(unprefixed, value, vscode.ConfigurationTarget.Global);
   }
+}
+
+export function resolveUmkPath(cfg: vscode.WorkspaceConfiguration, installation?: UppInstallation): string {
+  const configured = cfg.get<string>('umkPath', '');
+  if (configured) return configured;
+  if (os.platform() === 'win32' && installation) {
+    return path.join(installation.path, 'umk.exe');
+  }
+  return 'umk';
 }

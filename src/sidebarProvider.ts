@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { Assembly, findBuildMethods, parseBmFile, parseMainConfigs } from './assemblyParser';
 import { UppInstallation } from './installations';
 import { computeBinaryPath } from './outputDir';
+import { resolveUmkPath } from './utils';
 
 export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   public static readonly viewType = 'upp.stateView';
@@ -53,6 +54,9 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
             break;
           case 'setBuildMethod':
             vscode.commands.executeCommand('upp.setBuildMethod', message.value);
+            break;
+          case 'editBuildCmd':
+            vscode.commands.executeCommand('upp.editBuildCmd');
             break;
         }
       },
@@ -119,9 +123,14 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const linkMode      = cfg.get<string>('linkMode', 'all-static');
     const linkModeLabel = linkMode === 'all-static' ? 'All Static' : linkMode === 'use-shared' ? 'Use Shared (-s)' : 'All Shared (-S)';
     const buildFlags    = cfg.get<string>('buildFlags', '');
+    const linkModeFlag  = linkMode === 'use-shared' ? 's' : linkMode === 'all-shared' ? 'S' : '';
+    const effectiveFlags = buildFlags.split('').filter(c => c !== 's' && c !== 'S').join('') + linkModeFlag;
     const outputLabel   = buildFlags.includes('r') ? 'Release' : 'Debug';
     const extra         = cfg.get<string>('configurationFlag', '') || none;
-    const buildCmdText  = cfg.get<string>('buildCommand', '') || none;
+    const umkPathDisplay = resolveUmkPath(cfg, this.installation);
+    const buildCmdText  = (this.assembly && this.mainPackage)
+      ? [umkPathDisplay, this.assembly.name, path.basename(this.mainPackage), method, effectiveFlags ? `-${effectiveFlags}` : '', extra !== none ? `+${extra}` : ''].filter(Boolean).join(' ')
+      : cfg.get<string>('buildCommand', '') || none;
     const cppStandard   = cfg.get<string>('cppStandard', '') || 'c++17 (default)';
     const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
     const installationLabel = this.installation?.label ?? 'click to set';
@@ -224,6 +233,9 @@ function selectCppStandard(value) {
 function selectBuildMethod(value) {
   closeAllDropdowns();
   vscode.postMessage({ command: 'setBuildMethod', value: value });
+}
+function editBuildCmd() {
+  vscode.postMessage({ command: 'editBuildCmd' });
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
@@ -365,6 +377,18 @@ document.addEventListener('DOMContentLoaded', () => {
   .group-header:hover { background: var(--row-hover); }
   .group-header .label { color: var(--value-fg); margin-left: 0; }
   .group-header .value { color: var(--accent); font-size: 14px; font-weight: 600; margin-left: auto; }
+  .group-header .build-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: 2px;
+    opacity: 0.8;
+    margin: 0 3px;
+  }
+  .group-header .build-icon:hover { opacity: 1; background: var(--row-hover); }
+  .group-header .build-go { font-size: 18px; }
+  .group-header .build-rebuild { color: #c53535; }
   .group-header .chevron {
     color: var(--label-fg);
     font-size: 20px;
@@ -630,7 +654,24 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
   </div>
-  ${row('Build As', buildCmdText, 'upp.build')}
+  <div class="group">
+    <div class="group-header" data-group-id="buildMode" onclick="toggleGroup(this)">
+      <span class="chevron">\u25BE</span>
+      <span class="label">Build</span>
+      <span class="build-icon build-go" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.build' })" title="Build">\u26A1</span>
+      <span class="build-icon build-rebuild" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.rebuild' })" title="Rebuild All">\u25B6</span>
+      <span class="value">${this._esc((effectiveFlags ? '-' + effectiveFlags : '') + (configCurrent ? ' +' + configCurrent : '') || none)}</span>
+    </div>
+    <div class="group-children">
+      <div class="row">
+        <span class="label-group">
+          <span class="edit-icon" onclick="event.stopPropagation(); editBuildCmd()" title="Edit build command">\u270E</span>
+          <span class="label">Build Cmd</span>
+        </span>
+        <span class="value">${this._esc(buildCmdText)}</span>
+      </div>
+    </div>
+  </div>
 
   ${separator}
 
@@ -651,6 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'upp.openKeybindings')}
 
   ${row('Settings', '', 'workbench.action.openWorkspaceSettings')}
+  ${row('Extension Logs', '', 'upp.showExtensionLogs')}
   ${row('Help', 'README', 'upp.openHelp')}
 
 </body>

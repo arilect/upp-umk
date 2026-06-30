@@ -24,6 +24,7 @@ import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode, setOutput, setLinkMode } from './buildCommand';
 import { syncWorkspaces } from './workspace';
 import { doAction, ensureActiveAssembly } from './actions';
+import { resolveUmkPath } from './utils';
 import {
   selectAssembly, selectPackage, selectConfig, setConfig,
   editDescription, newPackage, newAssembly,
@@ -90,7 +91,7 @@ export async function activate(context: vscode.ExtensionContext) {
       setActiveInstallation(found[0]);
       const activeInstallPath = found[0].path;
       await cfg.update('activeInstallation', activeInstallPath, vscode.ConfigurationTarget.Global);
-      const umkPath = path.join(activeInstallPath, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      const umkPath = process.platform === 'win32' ? path.join(activeInstallPath, 'umk.exe') : 'umk';
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
     } else if (found.length > 1) {
       const picked = await vscode.window.showQuickPick(
@@ -105,7 +106,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (picked) {
         setActiveInstallation(picked.installation);
         await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
-        const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
+        const umkPath = process.platform === 'win32' ? path.join(picked.installation.path, 'umk.exe') : 'umk';
         await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       }
     }
@@ -120,6 +121,26 @@ export async function activate(context: vscode.ExtensionContext) {
     const lm = cfg.get<string>('linkMode', '');
     if (lm === 'all-static') {
       await cfg.update('linkMode', 'use-shared', vscode.ConfigurationTarget.Global);
+    }
+  }
+
+  // Fix stale umkPath on non-Windows: if it contains a slash, it's a full path from a previous session
+  if (process.platform !== 'win32') {
+    const umkPathVal = cfg.get<string>('umkPath', '');
+    if (umkPathVal && umkPathVal.includes('/')) {
+      console.log(`[UPP] activation: fixing stale umkPath "${umkPathVal}" → "umk"`);
+      await cfg.update('umkPath', 'umk', vscode.ConfigurationTarget.Workspace);
+    }
+    const buildCmd = cfg.get<string>('buildCommand', '');
+    if (buildCmd) {
+      const umkPrefix = buildCmd.split(/\s/)[0];
+      if (umkPrefix && umkPrefix.includes('/')) {
+        const fixed = 'umk' + buildCmd.slice(umkPrefix.length);
+        console.log(`[UPP] activation: fixing stale buildCommand "${buildCmd}" → "${fixed}"`);
+        await cfg.update('buildCommand', fixed, vscode.ConfigurationTarget.Workspace);
+        await cfg.update('debugCommand', (cfg.get<string>('debugCommand', '') || '').replace(umkPrefix, 'umk'), vscode.ConfigurationTarget.Workspace);
+        await cfg.update('releaseCommand', (cfg.get<string>('releaseCommand', '') || '').replace(umkPrefix, 'umk'), vscode.ConfigurationTarget.Workspace);
+      }
     }
   }
 
@@ -169,7 +190,7 @@ export async function activate(context: vscode.ExtensionContext) {
       setActiveInstallation(picked.installation);
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
-      const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      const umkPath = process.platform === 'win32' ? path.join(picked.installation.path, 'umk.exe') : 'umk';
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(`UPP: Switched to "${picked.installation.label}"`);
       updateStatusBar();
@@ -225,10 +246,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!(await ensureActiveAssembly())) return;
 
       const cfg = vscode.workspace.getConfiguration('upp');
-      const configuredUmk = cfg.get<string>('umkPath', '');
-      const umkPath: string = configuredUmk || (activeInstallation
-        ? path.join(activeInstallation.path, process.platform === 'win32' ? 'umk.exe' : 'umk')
-        : 'umk');
+      const umkPath = resolveUmkPath(cfg, activeInstallation);
       const assemblyName = activeAssembly!.name;
       const mainPackage  = activeMainPackage!;
       const buildMethod  = cfg.get('buildMethod', 'CLANG');
@@ -459,6 +477,9 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.openKeybindings', () => {
       vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'UPP:');
     }),
+    vscode.commands.registerCommand('upp.showExtensionLogs', () => {
+      vscode.commands.executeCommand('workbench.action.output.action.select');
+    }),
     vscode.commands.registerCommand('upp.updateIntelliSense', async () => {
       if (!(await ensureActiveAssembly())) return;
       const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
@@ -514,6 +535,20 @@ export async function activate(context: vscode.ExtensionContext) {
       await syncBuildCommand();
       updateStatusBar();
     }),
+    vscode.commands.registerCommand('upp.editBuildCmd', async () => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      const current = cfg.get<string>('buildCommand', '');
+      const edited = await vscode.window.showInputBox({
+        prompt: 'Edit build command',
+        value: current,
+        placeHolder: 'umk assembly package method -flags +config',
+      });
+      if (edited !== undefined && edited !== current) {
+        console.log(`[UPP] editBuildCmd → buildCommand = "${edited}"`);
+        await cfg.update('buildCommand', edited, vscode.ConfigurationTarget.Workspace);
+        updateStatusBar();
+      }
+    }),
     vscode.commands.registerCommand('upp.editInstallations', () => showInstallationsPanel()),
     vscode.commands.registerCommand('upp.scanInstallations', async () => {
       const found = scanInstallations();
@@ -535,7 +570,7 @@ export async function activate(context: vscode.ExtensionContext) {
       setActiveInstallation(picked.installation);
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
-      const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      const umkPath = process.platform === 'win32' ? path.join(picked.installation.path, 'umk.exe') : 'umk';
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       updateStatusBar();
       vscode.window.showInformationMessage(`UPP: Source tree "${picked.installation.label}" selected with ${picked.installation.assemblies.length} assembly(ies).`);

@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as os from 'os';
 import { findBuildMethods, parseMainConfigs } from './assemblyParser';
 import { activeAssembly, activeMainPackage, activeInstallation, updateStatusBar } from './state';
-import { persistSetting } from './utils';
+import { persistSetting, resolveUmkPath } from './utils';
 
 // ─── Build Params Interface ──────────────────────────────────────────────────
 
@@ -60,24 +59,14 @@ export function buildCommandLine(
   return parts.filter(Boolean).join(' ');
 }
 
-/**
- * Construct the umk command line from current workspace settings.
- * This is what gets written to upp.buildCommand and also what doAction uses
- * unless the user has manually edited upp.buildCommand.
- */
-function resolveUmkPath(cfg: vscode.WorkspaceConfiguration): string {
-  const configured = cfg.get<string>('umkPath', '');
-  if (configured) return configured;
-  if (activeInstallation) {
-    return path.join(activeInstallation.path, os.platform() === 'win32' ? 'umk.exe' : 'umk');
-  }
-  return 'umk';
-}
-
 export async function syncBuildCommand() {
-  if (!activeAssembly || !activeMainPackage) return;
   const cfg = vscode.workspace.getConfiguration('upp');
-  const umkPath = resolveUmkPath(cfg);
+  console.log(`[UPP] syncBuildCommand called`);
+  if (!activeAssembly || !activeMainPackage) {
+    console.log(`[UPP] syncBuildCommand: skipped (no activeAssembly=${!!activeAssembly} activeMainPackage=${!!activeMainPackage})`);
+    return;
+  }
+  const umkPath = resolveUmkPath(cfg, activeInstallation);
   const assemblyName = activeAssembly.name;
   const mainPackage = activeMainPackage;
   const buildMethod = cfg.get('buildMethod', 'CLANG');
@@ -97,8 +86,12 @@ export async function syncBuildCommand() {
 
   if (cfg.get<string>('buildCommand', '') === cmd &&
       cfg.get<string>('debugCommand', '') === debugCmd &&
-      cfg.get<string>('releaseCommand', '') === releaseCmd) return;
+      cfg.get<string>('releaseCommand', '') === releaseCmd) {
+    console.log(`[UPP] syncBuildCommand: skipped (settings already match)`);
+    return;
+  }
 
+  console.log(`[UPP] syncBuildCommand → buildCommand = "${cmd}"`);
   await persistSetting('upp.buildCommand', cmd, cfg);
   await persistSetting('upp.debugCommand', debugCmd, cfg);
   await persistSetting('upp.releaseCommand', releaseCmd, cfg);
@@ -133,7 +126,7 @@ export async function selectBuildMethod() {
   if (!chosen) return;
 
   const newCmd = buildCommandLine(
-    resolveUmkPath(cfg),
+    resolveUmkPath(cfg, activeInstallation),
     activeAssembly?.name ?? '',
     activeMainPackage ?? '',
     chosen,
@@ -143,6 +136,7 @@ export async function selectBuildMethod() {
   );
 
   await persistSetting('upp.buildMethod', chosen, cfg);
+  console.log(`[UPP] selectBuildMethod → buildCommand = "${newCmd}"`);
   await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
@@ -206,7 +200,7 @@ export async function selectOutput() {
   const rawFlags = stripLinkFlags(newFlags);
 
   const newCmd = buildCommandLine(
-    resolveUmkPath(cfg),
+    resolveUmkPath(cfg, activeInstallation),
     activeAssembly?.name ?? '',
     activeMainPackage ?? '',
     cfg.get('buildMethod', 'CLANG'),
@@ -216,6 +210,7 @@ export async function selectOutput() {
   );
 
   await persistSetting('upp.buildFlags', rawFlags, cfg);
+  console.log(`[UPP] selectOutput → buildCommand = "${newCmd}"`);
   await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
@@ -229,7 +224,7 @@ export async function setOutput(value: 'Debug' | 'Release') {
   const rawFlags   = stripLinkFlags(newFlags);
 
   const newCmd = buildCommandLine(
-    resolveUmkPath(cfg),
+    resolveUmkPath(cfg, activeInstallation),
     activeAssembly?.name ?? '',
     activeMainPackage ?? '',
     cfg.get('buildMethod', 'CLANG'),
@@ -239,6 +234,7 @@ export async function setOutput(value: 'Debug' | 'Release') {
   );
 
   await persistSetting('upp.buildFlags', rawFlags, cfg);
+  console.log(`[UPP] setOutput → buildCommand = "${newCmd}"`);
   await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
@@ -308,7 +304,7 @@ export async function selectBuildParams(pkgDir: string): Promise<BuildParams | u
   const configurationFlag = (chosenConfig ?? '').replace(/\s+/g, ',').replace(/,+/g, ',');
 
   const buildCommand = buildCommandLine(
-    resolveUmkPath(cfg),
+    resolveUmkPath(cfg, activeInstallation),
     activeAssembly!.name,
     activeMainPackage!,
     chosenBm,

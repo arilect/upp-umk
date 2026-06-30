@@ -146,7 +146,7 @@ export function showInstallationsPanel() {
       const instPath: string = msg.path;
       const label: string = msg.label;
       await cfg.update('activeInstallation', instPath, vscode.ConfigurationTarget.Global);
-      const umkPath = path.join(instPath, process.platform === 'win32' ? 'umk.exe' : 'umk');
+      const umkPath = process.platform === 'win32' ? path.join(instPath, 'umk.exe') : 'umk';
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(`UPP: Switched to "${label}".`);
       vscode.commands.executeCommand('workbench.action.reloadWindow');

@@ -156,6 +156,7 @@ export async function switchWorkspace(
     if (buildParams) {
       await persistSetting('upp.buildMethod', buildParams.buildMethod, cfg);
       await persistSetting('upp.configurationFlag', buildParams.configurationFlag, cfg);
+      console.log(`[UPP] workspace.switchWorkspace → buildCommand = "${buildParams.buildCommand}"`);
       await persistSetting('upp.buildCommand', buildParams.buildCommand, cfg);
     }
   }

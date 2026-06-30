@@ -9,7 +9,8 @@ import {
   buildNestToAssemblyMap,
   resolveAssemblyForPackage,
 } from './assemblyParser';
-import { updateWorkspaceFile, persistSetting } from './utils';
+import { updateWorkspaceFile, persistSetting, resolveUmkPath } from './utils';
+import { activeInstallation } from './state';
 
 // ─── Parse editable command string ────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export async function syncCompileCommandsCommand(
   mainPackage: string,
   cfg: vscode.WorkspaceConfiguration,
 ): Promise<void> {
-  const umkPath     = cfg.get('umkPath', 'umk');
+  const umkPath     = resolveUmkPath(cfg, activeInstallation);
   const buildMethod = cfg.get('buildMethod', 'CLANG');
   const configurationFlag  = cfg.get('configurationFlag', '');
 
@@ -280,7 +281,7 @@ export function updateCompileCommandsWatcher(
 
   const buildMethod = cfg.get('buildMethod', 'CLANG');
   const configurationFlag  = cfg.get('configurationFlag', '');
-  const umkPath     = cfg.get('umkPath', 'umk');
+  const umkPath     = resolveUmkPath(cfg, activeInstallation);
 
   compileCommandsWatcher = createCompileCommandsWatcher(
     assembly,
@@ -301,7 +302,7 @@ export async function doCompileCommandsGeneration(
   const cfg = vscode.workspace.getConfiguration('upp');
   const buildMethod = cfg.get('buildMethod', 'CLANG');
   const configurationFlag  = cfg.get('configurationFlag', '');
-  const umkPath     = cfg.get('umkPath', 'umk');
+  const umkPath     = resolveUmkPath(cfg, activeInstallation);
   const buildFlags  = cfg.get('buildFlags', '');
 
   await vscode.window.withProgress({
