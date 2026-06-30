@@ -21,9 +21,14 @@ import { showSelectPackagePanel } from './selectPackagePanel';
 export async function selectAssembly() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const varDir: string = cfg.get('varDir', '');
-  const assemblies = activeInstallation?.assemblies?.length
+  const enabledAssemblies = cfg.get<string[]>('enabledAssemblies', []);
+  const allAssemblies = activeInstallation?.assemblies?.length
     ? activeInstallation.assemblies
     : findAssemblies(varDir);
+
+  const assemblies = enabledAssemblies.length > 0
+    ? allAssemblies.filter(a => enabledAssemblies.includes(a.filePath))
+    : allAssemblies;
 
   if (assemblies.length === 0) {
     vscode.window.showWarningMessage(
@@ -61,9 +66,14 @@ export async function selectAssembly() {
 export async function selectPackage() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const varDir: string = cfg.get('varDir', '');
-  const assemblies = activeInstallation?.assemblies?.length
+  const enabledAssemblies = cfg.get<string[]>('enabledAssemblies', []);
+  const allAssemblies = activeInstallation?.assemblies?.length
     ? activeInstallation.assemblies
     : findAssemblies(varDir);
+
+  const assemblies = enabledAssemblies.length > 0
+    ? allAssemblies.filter(a => enabledAssemblies.includes(a.filePath))
+    : allAssemblies;
 
   if (assemblies.length === 0) {
     vscode.window.showWarningMessage(

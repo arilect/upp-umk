@@ -3,11 +3,16 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { scanInstallationsAsync, scanInstallations, resolvePath, UppInstallation } from './installations';
+import { scanVarFiles } from './assemblyParser';
+
+interface ManualEntry { path: string; addedManually: boolean; }
 
 export function showInstallationsPanel() {
+  const isWindows = process.platform === 'win32';
+  const panelTitle = isWindows ? 'U++ Installations' : 'U++ Source Trees';
   const panel = vscode.window.createWebviewPanel(
     'uppInstallations',
-    'U++ Installations',
+    panelTitle,
     vscode.ViewColumn.One,
     { enableScripts: true, retainContextWhenHidden: true },
   );
@@ -15,16 +20,45 @@ export function showInstallationsPanel() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const currentPaths = cfg.get<string[]>('installationsPaths', ['~']);
   const currentGlob = cfg.get<string>('installationsGlob', '');
-  const currentManual = cfg.get<string[]>('installationsManual', []);
+  const currentManualRaw = cfg.get<ManualEntry[]>('installationsManual', []);
+  const currentManual = Array.isArray(currentManualRaw)
+    ? currentManualRaw.map(e => typeof e === 'string' ? { path: e, addedManually: false } : e)
+    : [];
 
   const allKnown = scanInstallations();
   const knownPaths = allKnown.map(i => i.path);
-  const mergedManual = [...new Set([...currentManual, ...knownPaths])];
+  let mergedManual = [...currentManual];
+  for (const kp of knownPaths) {
+    if (!mergedManual.some(e => e.path === kp)) {
+      mergedManual.push({ path: kp, addedManually: false });
+    }
+  }
   if (mergedManual.length !== currentManual.length) {
     cfg.update('installationsManual', mergedManual, vscode.ConfigurationTarget.Global);
   }
 
-  panel.webview.html = buildHtml(currentPaths, currentGlob, mergedManual);
+  const currentScanDirs = cfg.get<string[]>('scanDirs', ['~']);
+  const currentEnabledAssemblies = cfg.get<string[]>('enabledAssemblies', []);
+  const currentScannedAssemblies = cfg.get<string[]>('scannedAssemblies', []);
+
+  panel.webview.html = buildHtml(currentPaths, currentGlob, mergedManual, currentScanDirs, currentEnabledAssemblies, isWindows);
+
+  // Auto-scan on open: if scanDirs are set, run scan and send results to webview
+  // Use setTimeout to ensure the webview's message listener is ready
+  if (currentScanDirs.length > 0) {
+    setTimeout(() => {
+      const assemblies = scanVarFiles(currentScanDirs);
+      const enabledSet = new Set(currentEnabledAssemblies);
+      const hasEnabled = currentEnabledAssemblies.length > 0;
+      const results = assemblies.map(a => ({
+        name: a.name,
+        filePath: a.filePath,
+        nests: a.nests,
+        enabled: hasEnabled ? enabledSet.has(a.filePath) : true,
+      }));
+      panel.webview.postMessage({ type: 'varscanResult', assemblies: results });
+    }, 200);
+  }
 
   let scanTokenSource: vscode.CancellationTokenSource | undefined;
 
@@ -60,13 +94,22 @@ export function showInstallationsPanel() {
 
       const foundPaths = [...foundMap.keys()];
       if (foundPaths.length > 0) {
-        const currentManual = cfg.get<string[]>('installationsManual', []);
-        const merged = [...new Set([...currentManual, ...foundPaths])];
+        const currentManual = cfg.get<ManualEntry[]>('installationsManual', []);
+        const migrated = Array.isArray(currentManual)
+          ? currentManual.map(e => typeof e === 'string' ? { path: e, addedManually: false } as ManualEntry : e)
+          : [];
+        const existingManualPaths = new Set(migrated.filter(e => e.addedManually).map(e => e.path));
+        const merged: ManualEntry[] = [...migrated.filter(e => e.addedManually)];
+        for (const fp of foundPaths) {
+          if (!existingManualPaths.has(fp)) {
+            merged.push({ path: fp, addedManually: false });
+          }
+        }
         await cfg.update('installationsManual', merged, vscode.ConfigurationTarget.Global);
       }
 
       panel.webview.postMessage({ type: 'scanDone', totalFound: foundMap.size });
-      const updatedManual = cfg.get<string[]>('installationsManual', []);
+      const updatedManual = cfg.get<ManualEntry[]>('installationsManual', []);
       panel.webview.postMessage({ type: 'updateManual', manual: updatedManual });
       scanTokenSource.dispose();
       scanTokenSource = undefined;
@@ -85,14 +128,19 @@ export function showInstallationsPanel() {
 
     } else if (msg.type === 'save') {
       const paths: string[] = msg.paths || [];
-      const manual: string[] = msg.manual || [];
+      const manual: ManualEntry[] = msg.manual || [];
       const found: string[] = msg.found || [];
       const glob: string = msg.glob || '';
-      const all = [...new Set([...manual, ...found])];
+      const merged: ManualEntry[] = [...manual];
+      for (const fp of found) {
+        if (!merged.some(e => e.path === fp)) {
+          merged.push({ path: fp, addedManually: false });
+        }
+      }
       await cfg.update('installationsPaths', paths, vscode.ConfigurationTarget.Global);
       await cfg.update('installationsGlob', glob, vscode.ConfigurationTarget.Global);
-      await cfg.update('installationsManual', all, vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage(`UPP: Saved ${paths.length} scan path(s), ${all.length} installation(s).`);
+      await cfg.update('installationsManual', merged, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`UPP: Saved ${paths.length} scan path(s), ${merged.length} installation(s).`);
 
     } else if (msg.type === 'selectInstallation') {
       const instPath: string = msg.path;
@@ -102,6 +150,39 @@ export function showInstallationsPanel() {
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(`UPP: Switched to "${label}".`);
       vscode.commands.executeCommand('workbench.action.reloadWindow');
+
+    } else if (msg.type === 'varscan') {
+      const dirs: string[] = msg.dirs || [];
+      await cfg.update('scanDirs', dirs, vscode.ConfigurationTarget.Global);
+      const assemblies = scanVarFiles(dirs);
+      const enabledRaw = cfg.get<string[]>('enabledAssemblies', []);
+      const enabledSet = new Set(enabledRaw);
+      const results = assemblies.map(a => ({
+        name: a.name,
+        filePath: a.filePath,
+        nests: a.nests,
+        enabled: enabledSet.has(a.filePath) || enabledRaw.length === 0,
+      }));
+      // Persist the full list of found assemblies
+      const allPaths = assemblies.map(a => a.filePath);
+      await cfg.update('scannedAssemblies', allPaths, vscode.ConfigurationTarget.Global);
+      // If enabledAssemblies was empty (first scan), persist all found assemblies as enabled
+      if (enabledRaw.length === 0 && assemblies.length > 0) {
+        await cfg.update('enabledAssemblies', allPaths, vscode.ConfigurationTarget.Global);
+      }
+      panel.webview.postMessage({ type: 'varscanResult', assemblies: results });
+
+    } else if (msg.type === 'toggleAssembly') {
+      const filePath: string = msg.filePath;
+      const enabled: boolean = msg.enabled;
+      const current = cfg.get<string[]>('enabledAssemblies', []);
+      let updated: string[];
+      if (enabled) {
+        updated = current.includes(filePath) ? current : [...current, filePath];
+      } else {
+        updated = current.filter(p => p !== filePath);
+      }
+      await cfg.update('enabledAssemblies', updated, vscode.ConfigurationTarget.Global);
     }
   });
 }
@@ -110,9 +191,11 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function buildHtml(paths: string[], glob: string, manual: string[]): string {
+function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDirs: string[], enabledAssemblies: string[], isWindows: boolean): string {
   const pathsJson = JSON.stringify(paths);
   const manualJson = JSON.stringify(manual);
+  const scanDirsJson = JSON.stringify(scanDirs);
+  const enabledJson = JSON.stringify(enabledAssemblies);
 
   return `<!DOCTYPE html>
 <html>
@@ -239,8 +322,8 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
 </style>
 </head>
 <body>
-  <h2>U++ Installations</h2>
-  <div class="subtitle">Configure directories and pattern to scan for U++ installations.</div>
+  <h2>${isWindows ? 'U++ Installations' : 'U++ Source Trees'}</h2>
+  <div class="subtitle">Configure directories and pattern to scan for U++ source trees.</div>
 
   <div class="field">
     <label for="globInput">Directory Pattern</label>
@@ -256,13 +339,13 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
   </div>
   <div class="hint">Use ~ for home directory. Each path is scanned for directories matching the pattern.</div>
 
-  <div class="section">Installations</div>
+  <div class="section">Source Trees</div>
   <div id="manual_list" class="list-container"></div>
   <div class="list-add">
-    <input type="text" id="manual_input" placeholder="Add installation path directly (e.g. /opt/upp, ~/upp-24.1/upp)..." />
+    <input type="text" id="manual_input" placeholder="Add source tree path directly (e.g. /opt/upp, ~/upp-24.1/upp)..." />
     <button class="btn-small" onclick="addManual()">+</button>
   </div>
-  <div class="hint">Add U++ installation directories directly. Must contain uppsrc/.</div>
+  <div class="hint">Add U++ source tree directories directly. Must contain uppsrc/.</div>
 
   <div class="search-info">
     <div class="info-title">What will be scanned</div>
@@ -273,7 +356,19 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
     }).join('')}
   </div>
 
-  <button class="btn-scan" id="btnScan">Scan for Installations</button>
+  <button class="btn-scan" id="btnScan">Scan for Source Trees</button>
+
+  <div class="section">Scan for .var Files</div>
+  <div id="varscan_dirs_list" class="list-container"></div>
+  <div class="list-add">
+    <input type="text" id="varscan_dirs_input" placeholder="Add directory to scan for .var files (e.g. ~/.config/u++/theide)..." />
+    <button class="btn-small" onclick="addVarScanDir()">+</button>
+  </div>
+  <div class="hint">Directories are scanned recursively for *.var assembly files.</div>
+
+  <div id="varscan_results" class="list-container" style="margin-top:8px"></div>
+
+  <button class="btn-scan" id="btnVarScan">Scan for .var Files</button>
 
   <div class="buttons">
     <button class="btn-cancel" id="btnCancel">Cancel</button>
@@ -284,9 +379,12 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
     try {
     const vscode = acquireVsCodeApi();
     const homeDir = ${JSON.stringify(os.homedir())};
+    const IS_WINDOWS = ${isWindows ? 'true' : 'false'};
     let PATHS = ${pathsJson};
     let MANUAL = ${manualJson};
     let FOUND = [];
+    let VARSCAN_DIRS = ${scanDirsJson};
+    let VARSCAN_RESULTS = [];
     let scanningActive = false;
     let dirProgress = {};
 
@@ -305,20 +403,28 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
     function renderManual() {
       const container = document.getElementById('manual_list');
       container.innerHTML = '';
-      MANUAL.forEach((p, i) => {
+      MANUAL.forEach((entry, i) => {
+        const p = entry.path;
+        const tag = entry.addedManually ? ' <span style="opacity:0.4;font-size:0.75em">[manual]</span>' : '';
+        const activateBtn = IS_WINDOWS
+          ? '<button class="btn-activate" onclick="activateInstall(\\'' + escapeHtml(p).replace(/'/g, "\\'") + '\\',\\'' + escapeHtml(p).replace(/'/g, "\\'") + '\\')">Activate</button>'
+          : '';
         const div = document.createElement('div');
         div.className = 'list-item';
-        div.innerHTML = '<span class="item-text">' + escapeHtml(p) + '</span>' +
-          '<button class="btn-activate" onclick="activateInstall(\\'' + escapeHtml(p).replace(/'/g, "\\'") + '\\',\\'' + escapeHtml(p).replace(/'/g, "\\'") + '\\')">Activate</button>' +
+        div.innerHTML = '<span class="item-text">' + escapeHtml(p) + tag + '</span>' +
+          activateBtn +
           '<button class="btn-remove" title="Remove" onclick="removeManual(' + i + ')">&times;</button>';
         container.appendChild(div);
       });
       FOUND.forEach((inst, i) => {
+        const activateBtn = IS_WINDOWS
+          ? '<button class="btn-activate" onclick="activateInstall(\\'' + escapeHtml(inst.path).replace(/'/g, "\\'") + '\\',\\'' + escapeHtml(inst.label).replace(/'/g, "\\'") + '\\')">Activate</button>'
+          : '';
         const div = document.createElement('div');
         div.className = 'list-item';
         div.innerHTML = '<span class="item-text">' + escapeHtml(inst.label) + ' <span style="opacity:0.5">' + escapeHtml(inst.path) + '</span></span>' +
           '<span class="item-assemblies">' + inst.assemblies.length + ' asm</span>' +
-          '<button class="btn-activate" onclick="activateInstall(\\'' + escapeHtml(inst.path).replace(/'/g, "\\'") + '\\',\\'' + escapeHtml(inst.label).replace(/'/g, "\\'") + '\\')">Activate</button>' +
+          activateBtn +
           '<button class="btn-remove" title="Remove" onclick="removeFound(' + i + ')">&times;</button>';
         container.appendChild(div);
       });
@@ -381,6 +487,66 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
       return p;
     }
 
+    function renderVarScanDirs() {
+      const container = document.getElementById('varscan_dirs_list');
+      container.innerHTML = '';
+      VARSCAN_DIRS.forEach((p, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = '<span class="item-text">' + escapeHtml(p) + '</span>' +
+          '<button class="btn-remove" title="Remove" onclick="removeVarScanDir(' + i + ')">&times;</button>';
+        container.appendChild(div);
+      });
+    }
+
+    function addVarScanDir() {
+      const input = document.getElementById('varscan_dirs_input');
+      const val = input.value.trim();
+      if (!val) return;
+      if (!VARSCAN_DIRS.includes(val)) {
+        VARSCAN_DIRS.push(val);
+        renderVarScanDirs();
+      }
+      input.value = '';
+    }
+
+    function removeVarScanDir(idx) {
+      VARSCAN_DIRS.splice(idx, 1);
+      renderVarScanDirs();
+    }
+
+    function renderVarScanResults() {
+      const container = document.getElementById('varscan_results');
+      container.innerHTML = '';
+      if (VARSCAN_RESULTS.length === 0) return;
+      const header = document.createElement('div');
+      header.className = 'section';
+      header.textContent = 'Found Assemblies';
+      container.appendChild(header);
+      VARSCAN_RESULTS.forEach((a, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        const nestPreview = a.nests.length > 0 ? ' <span style="opacity:0.4;font-size:0.8em">' + escapeHtml(a.nests[0]) + (a.nests.length > 1 ? ' +' + (a.nests.length - 1) : '') + '</span>' : '';
+        div.innerHTML = '<input type="checkbox" ' + (a.enabled ? 'checked' : '') + ' onchange="toggleAssembly(\\'' + escapeHtml(a.filePath).replace(/'/g, "\\'") + '\\', this.checked)" />' +
+          '<span class="item-text">' + escapeHtml(a.name) + ' <span style="opacity:0.5">' + escapeHtml(a.filePath) + '</span>' + nestPreview + '</span>';
+        container.appendChild(div);
+      });
+    }
+
+    function onVarScanClick() {
+      if (VARSCAN_DIRS.length === 0) return;
+      vscode.postMessage({ type: 'varscan', dirs: VARSCAN_DIRS });
+    }
+
+    function toggleAssembly(filePath, enabled) {
+      const idx = VARSCAN_RESULTS.findIndex(a => a.filePath === filePath);
+      if (idx >= 0) VARSCAN_RESULTS[idx].enabled = enabled;
+      vscode.postMessage({ type: 'toggleAssembly', filePath: filePath, enabled: enabled });
+    }
+
+    document.getElementById('btnVarScan').addEventListener('click', onVarScanClick);
+    document.getElementById('varscan_dirs_input').addEventListener('keydown', e => { if (e.key === 'Enter') addVarScanDir(); });
+
     function onScanClick() {
       if (scanningActive) {
         vscode.postMessage({ type: 'cancelScan' });
@@ -414,7 +580,7 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
     function resetScanBtn() {
       scanningActive = false;
       const btn = document.getElementById('btnScan');
-      btn.textContent = 'Scan for Installations';
+      btn.textContent = 'Scan for Source Trees';
       btn.classList.remove('btn-cancel-scan');
     }
 
@@ -442,7 +608,7 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
 
       } else if (msg.type === 'scanFound') {
         const inst = msg.installation;
-        const exists = FOUND.some(f => f.path === inst.path) || MANUAL.includes(inst.path);
+        const exists = FOUND.some(f => f.path === inst.path) || MANUAL.some(e => e.path === inst.path);
         if (!exists) {
           FOUND.push(inst);
           renderManual();
@@ -462,8 +628,8 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
       } else if (msg.type === 'manualValidation') {
         const input = document.getElementById('manual_input');
         if (msg.valid) {
-          if (!MANUAL.includes(msg.resolved)) {
-            MANUAL.push(msg.resolved);
+          if (!MANUAL.some(e => e.path === msg.resolved)) {
+            MANUAL.push({ path: msg.resolved, addedManually: true });
             renderManual();
           }
           input.value = '';
@@ -474,14 +640,27 @@ function buildHtml(paths: string[], glob: string, manual: string[]): string {
           setTimeout(() => { input.style.borderColor = ''; input.title = ''; }, 2000);
         }
       } else if (msg.type === 'updateManual') {
-        MANUAL = msg.manual || [];
+        const incoming = msg.manual || [];
+        const incomingMigrated = incoming.map(e => typeof e === 'string' ? { path: e, addedManually: false } : e);
+        const manualPaths = new Set(MANUAL.filter(e => e.addedManually).map(e => e.path));
+        MANUAL = MANUAL.filter(e => e.addedManually);
+        for (const e of incomingMigrated) {
+          if (!manualPaths.has(e.path)) {
+            MANUAL.push(e);
+          }
+        }
         FOUND = [];
         renderManual();
+      } else if (msg.type === 'varscanResult') {
+        VARSCAN_RESULTS = msg.assemblies || [];
+        renderVarScanResults();
       }
     });
 
     renderPaths();
     renderManual();
+    renderVarScanDirs();
+    renderVarScanResults();
     } catch(e) {
       document.body.innerHTML = '<div style="padding:20px;color:var(--vscode-errorForeground);font-size:16px;">Script error: ' + e.message + ' | ' + e.stack + '</div>';
     }

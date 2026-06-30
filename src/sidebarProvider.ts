@@ -38,6 +38,12 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
           case 'executeCommand':
             vscode.commands.executeCommand(message.commandId, ...(message.args || []));
             break;
+          case 'setOutput':
+            vscode.commands.executeCommand('upp.setOutput', message.value);
+            break;
+          case 'setLinkMode':
+            vscode.commands.executeCommand('upp.setLinkMode', message.value);
+            break;
         }
       },
       undefined,
@@ -108,6 +114,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const buildCmdText  = cfg.get<string>('buildCommand', '') || none;
     const cppStandard   = cfg.get<string>('cppStandard', '') || 'c++17 (default)';
     const installationLabel = this.installation?.label ?? 'click to set';
+    const isWindows = process.platform === 'win32';
 
     const varDir = cfg.get<string>('varDir', '');
     const bmName = cfg.get<string>('buildMethod', '');
@@ -161,6 +168,27 @@ function toggleGroup(el) {
   state[el.dataset.groupId] = collapsed ? 'expanded' : 'collapsed';
   vscode.setState(state);
 }
+function toggleDropdown(id) {
+  const container = document.getElementById(id)?.closest('.dropdown-container');
+  if (!container) return;
+  const wasOpen = container.classList.contains('open');
+  closeAllDropdowns();
+  if (!wasOpen) container.classList.add('open');
+}
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown-container.open').forEach(d => d.classList.remove('open'));
+}
+function selectOutput(value) {
+  closeAllDropdowns();
+  vscode.postMessage({ command: 'setOutput', value: value });
+}
+function selectLinkMode(value) {
+  closeAllDropdowns();
+  vscode.postMessage({ command: 'setLinkMode', value: value });
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
+});
 document.addEventListener('DOMContentLoaded', () => {
   const state = vscode.getState() || {};
   document.querySelectorAll('.group').forEach(g => {
@@ -313,11 +341,90 @@ document.addEventListener('DOMContentLoaded', () => {
     padding: 2px 6px 4px;
     line-height: 1.3;
   }
+  .dropdown-container {
+    position: relative;
+    margin: 2px 0;
+  }
+  .dropdown-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--value-fg);
+    font-family: inherit;
+    font-size: inherit;
+    gap: 8px;
+  }
+  .dropdown-btn:hover { background: var(--row-hover); }
+  .dropdown-btn .label {
+    color: var(--label-fg);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .dropdown-btn .value {
+    color: var(--value-fg);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .dropdown-btn .chevron {
+    color: var(--label-fg);
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .dropdown-container.open .dropdown-btn .chevron {
+    transform: rotate(180deg);
+  }
+  .dropdown-options {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 1000;
+    background: var(--vscode-editor-background, #1e1e1e);
+    border: 1px solid var(--separator);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    overflow: hidden;
+    margin-top: 2px;
+  }
+  .dropdown-container.open .dropdown-options {
+    display: block;
+  }
+  .dropdown-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 8px;
+    cursor: pointer;
+    color: var(--value-fg);
+    font-size: inherit;
+  }
+  .dropdown-option:hover {
+    background: var(--row-hover);
+  }
+  .dropdown-option.selected {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .dropdown-option .check {
+    color: var(--accent);
+    font-size: 13px;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
 
-  <div class="section-title">Package</div>
   <div class="group">
     <div class="group-header" data-group-id="package" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
@@ -325,17 +432,16 @@ document.addEventListener('DOMContentLoaded', () => {
       <span class="value">${this._esc(packageName)}</span>
     </div>
     <div class="group-children">
-      <button class="btn btn-secondary" onclick="${this._cmd('upp.editInstallations')}">Installations</button>
-      ${row('Installation', installationLabel, 'upp.selectInstallation')}
+      <button class="btn btn-secondary" onclick="${this._cmd('upp.editInstallations')}">Source Trees</button>
+      ${isWindows ? row('Source Tree', installationLabel, 'upp.selectInstallation') : ''}
       <button class="btn btn-new" onclick="${this._cmd('upp.newPackage')}">New Package</button>
-      ${row('Assembly', assemblyName, 'upp.selectAssembly')}
+      ${row('Select from Assembly', assemblyName, 'upp.selectAssembly')}
       ${row('Description', this.packageDescription || '(click to set)', 'upp.editDescription')}
     </div>
   </div>
 
   ${separator}
 
-  <div class="section-title">Build</div>
   <div class="group">
     <div class="group-header" data-group-id="buildMethod" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
@@ -345,12 +451,48 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="group-children">
       ${row('Select Method', bmPath, 'upp.selectBuildMethod')}
       ${row('Edit Method', 'settings', 'upp.editBuildMethod')}
-      ${row('Link Mode', linkModeLabel, 'upp.selectLinkMode')}
+      <div class="dropdown-container">
+        <button class="dropdown-btn" onclick="toggleDropdown('linkmode-dropdown')">
+          <span class="label">Link Mode</span>
+          <span class="value">${this._esc(linkModeLabel)}</span>
+          <span class="chevron">\u25BE</span>
+        </button>
+        <div id="linkmode-dropdown" class="dropdown-options">
+          <div class="dropdown-option ${linkMode === 'all-static' ? 'selected' : ''}" onclick="selectLinkMode('all-static')">
+            <span>All Static</span>
+            ${linkMode === 'all-static' ? '<span class="check">\u2713</span>' : ''}
+          </div>
+          <div class="dropdown-option ${linkMode === 'use-shared' ? 'selected' : ''}" onclick="selectLinkMode('use-shared')">
+            <span>Use Shared (-s)</span>
+            ${linkMode === 'use-shared' ? '<span class="check">\u2713</span>' : ''}
+          </div>
+          <div class="dropdown-option ${linkMode === 'all-shared' ? 'selected' : ''}" onclick="selectLinkMode('all-shared')">
+            <span>All Shared (-S)</span>
+            ${linkMode === 'all-shared' ? '<span class="check">\u2713</span>' : ''}
+          </div>
+        </div>
+      </div>
       ${row('C++ Standard', cppStandard, 'workbench.action.openWorkspaceSettings')}
     </div>
   </div>
 
-  ${row('Output Mode', outputLabel, 'upp.selectOutput')}
+  <div class="dropdown-container">
+    <button class="dropdown-btn" onclick="toggleDropdown('output-dropdown')">
+      <span class="label">Output Mode</span>
+      <span class="value">${this._esc(outputLabel)}</span>
+      <span class="chevron">\u25BE</span>
+    </button>
+    <div id="output-dropdown" class="dropdown-options">
+      <div class="dropdown-option ${outputLabel === 'Debug' ? 'selected' : ''}" onclick="selectOutput('Debug')">
+        <span>Debug</span>
+        ${outputLabel === 'Debug' ? '<span class="check">\u2713</span>' : ''}
+      </div>
+      <div class="dropdown-option ${outputLabel === 'Release' ? 'selected' : ''}" onclick="selectOutput('Release')">
+        <span>Release</span>
+        ${outputLabel === 'Release' ? '<span class="check">\u2713</span>' : ''}
+      </div>
+    </div>
+  </div>
   ${row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')}
   ${row('Generate clang json', '', 'upp.generateClangJson')}
   ${row('Build As', buildCmdText, 'upp.build')}

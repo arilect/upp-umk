@@ -195,7 +195,11 @@ export async function scanInstallationsAsync(
 export function scanInstallations(pattern?: string): UppInstallation[] {
   const roots = findUppRoots(pattern);
   const cfg = vscode.workspace.getConfiguration('upp');
-  const manualPaths = cfg.get<string[]>('installationsManual', []);
+  const manualRaw = cfg.get<unknown[]>('installationsManual', []);
+  const manualPaths: string[] = Array.isArray(manualRaw)
+    ? manualRaw.map(e => typeof e === 'string' ? e : (e && typeof e === 'object' ? (e as {path: string}).path : ''))
+    .filter(Boolean)
+    : [];
 
   for (const raw of manualPaths) {
     const dir = resolvePath(raw);

@@ -172,6 +172,16 @@ export async function selectLinkMode() {
   updateStatusBar();
 }
 
+export async function setLinkMode(value: 'all-static' | 'use-shared' | 'all-shared') {
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const current: string = cfg.get('linkMode', 'all-static');
+  if (value === current) return;
+
+  await cfg.update('linkMode', value, vscode.ConfigurationTarget.Workspace);
+  await syncBuildCommand();
+  updateStatusBar();
+}
+
 // ─── Output Type Selection (Debug / Release) ─────────────────────────────────
 
 export async function selectOutput() {
@@ -194,6 +204,29 @@ export async function selectOutput() {
 
   // Strip linkMode flags before saving back to buildFlags (linkMode is separate setting)
   const rawFlags = stripLinkFlags(newFlags);
+
+  const newCmd = buildCommandLine(
+    resolveUmkPath(cfg),
+    activeAssembly?.name ?? '',
+    activeMainPackage ?? '',
+    cfg.get('buildMethod', 'CLANG'),
+    cfg.get('configurationFlag', ''),
+    newFlags,
+    cfg.get('outPath', ''),
+  );
+
+  await persistSetting('upp.buildFlags', rawFlags, cfg);
+  await persistSetting('upp.buildCommand', newCmd, cfg);
+  updateStatusBar();
+}
+
+export async function setOutput(value: 'Debug' | 'Release') {
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const currentFlags: string = effectiveBuildFlags(cfg);
+
+  const otherFlags = currentFlags.split('').filter(c => c !== 'r').join('');
+  const newFlags   = value === 'Release' ? 'r' + otherFlags : otherFlags;
+  const rawFlags   = stripLinkFlags(newFlags);
 
   const newCmd = buildCommandLine(
     resolveUmkPath(cfg),

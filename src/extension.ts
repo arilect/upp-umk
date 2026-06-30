@@ -21,7 +21,7 @@ import {
 } from './state';
 import { UppSidebarProvider } from './sidebarProvider';
 import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
-import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode } from './buildCommand';
+import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode, setOutput, setLinkMode } from './buildCommand';
 import { syncWorkspaces } from './workspace';
 import { doAction, ensureActiveAssembly } from './actions';
 import {
@@ -98,7 +98,7 @@ export async function activate(context: vscode.ExtensionContext) {
           detail: `${inst.assemblies.length} assembly(ies)`,
           installation: inst,
         })),
-        { placeHolder: 'Multiple U++ installations found. Select one:' }
+        { placeHolder: 'Multiple U++ source trees found. Select one:' }
       );
       if (picked) {
         setActiveInstallation(picked.installation);
@@ -150,7 +150,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.selectInstallation', async () => {
       const found = scanInstallations();
       if (found.length === 0) {
-        vscode.window.showWarningMessage('UPP: No U++ installations found. Install U++ or check upp.installationsPaths setting.');
+        vscode.window.showWarningMessage('UPP: No U++ source trees found. Install U++ or check upp.installationsPaths setting.');
         return;
       }
       const currentPath = activeInstallation?.path;
@@ -161,7 +161,7 @@ export async function activate(context: vscode.ExtensionContext) {
           detail: `${inst.assemblies.length} assembly(ies)`,
           installation: inst,
         })),
-        { placeHolder: 'Select U++ installation' }
+        { placeHolder: 'Select U++ source tree' }
       );
       if (!picked) return;
       setActiveInstallation(picked.installation);
@@ -177,7 +177,9 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.selectConfig',       () => selectConfig()),
     vscode.commands.registerCommand('upp.selectBuildMethod',  () => selectBuildMethod()),
     vscode.commands.registerCommand('upp.selectLinkMode',     () => selectLinkMode()),
+    vscode.commands.registerCommand('upp.setLinkMode',        (value: string) => setLinkMode(value as 'all-static' | 'use-shared' | 'all-shared')),
     vscode.commands.registerCommand('upp.selectOutput',       () => selectOutput()),
+    vscode.commands.registerCommand('upp.setOutput',          (value: string) => setOutput(value as 'Debug' | 'Release')),
     vscode.commands.registerCommand('upp.editDescription',    () => editDescription()),
     vscode.commands.registerCommand('upp.selectBuildParams',  async () => {
       if (!(await ensureActiveAssembly())) return;
@@ -498,7 +500,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.scanInstallations', async () => {
       const found = scanInstallations();
       if (found.length === 0) {
-        vscode.window.showWarningMessage('UPP: No U++ installations found. Check upp.installationsPaths setting.');
+        vscode.window.showWarningMessage('UPP: No U++ source trees found. Check upp.installationsPaths setting.');
         return;
       }
       const currentPath = activeInstallation?.path;
@@ -509,7 +511,7 @@ export async function activate(context: vscode.ExtensionContext) {
           detail: `${inst.assemblies.length} assembly(ies): ${inst.assemblies.map(a => a.name).join(', ')}`,
           installation: inst,
         })),
-        { placeHolder: 'Select a U++ installation to activate' }
+        { placeHolder: 'Select a U++ source tree' }
       );
       if (!picked) return;
       setActiveInstallation(picked.installation);
@@ -518,7 +520,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const umkPath = path.join(picked.installation.path, process.platform === 'win32' ? 'umk.exe' : 'umk');
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
       updateStatusBar();
-      vscode.window.showInformationMessage(`UPP: Installation "${picked.installation.label}" activated with ${picked.installation.assemblies.length} assembly(ies).`);
+      vscode.window.showInformationMessage(`UPP: Source tree "${picked.installation.label}" selected with ${picked.installation.assemblies.length} assembly(ies).`);
     })
   );
 

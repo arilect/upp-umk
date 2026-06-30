@@ -244,8 +244,22 @@ function buildHtml(assemblies: AsmData[], currentAssemblyName: string | undefine
         }
       }
     });
-    pkgList.addEventListener('click', e => { const el = e.target.closest('.pkg-item'); if (el) selectPkg(el); });
+    let clickTimer = null;
+    pkgList.addEventListener('click', e => {
+      const el = e.target.closest('.pkg-item');
+      if (!el) return;
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        return;
+      }
+      clickTimer = setTimeout(() => {
+        clickTimer = null;
+        selectPkg(el);
+      }, 250);
+    });
     pkgList.addEventListener('dblclick', e => {
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
       const el = e.target.closest('.pkg-item');
       if (el) {
         const asmName = el.dataset.asm;

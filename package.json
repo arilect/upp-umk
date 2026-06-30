@@ -100,7 +100,7 @@
       },
       {
         "command": "upp.selectInstallation",
-        "title": "UPP: Select U++ Installation",
+        "title": "UPP: Select U++ Source Tree",
         "icon": "$(versions)"
       },
       {
@@ -208,24 +208,43 @@
         "upp.activeInstallation": {
           "type": "string",
           "default": "",
-          "description": "Path to the active U++ installation (directory containing uppsrc/, umk.exe). Set via UPP: Select U++ Installation."
+          "description": "Path to the active U++ source tree (directory containing uppsrc/, umk.exe). Set via UPP: Select U++ Source Tree."
         },
         "upp.installationsPaths": {
           "type": "array",
           "items": { "type": "string" },
           "default": ["~"],
-          "description": "Directories to scan for upp-* U++ installations. Use ~ for home directory."
+          "description": "Directories to scan for upp-* U++ source trees. Use ~ for home directory."
         },
         "upp.installationsGlob": {
           "type": "string",
           "default": "",
-          "description": "Optional glob pattern to filter directories when scanning for U++ installations (e.g. upp-*, upp*, ultimatepp*). Leave empty to match any directory containing uppsrc/."
+          "description": "Optional glob pattern to filter directories when scanning for U++ source trees (e.g. upp-*, upp*, ultimatepp*). Leave empty to match any directory containing uppsrc/."
         },
         "upp.installationsManual": {
           "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "addedManually": { "type": "boolean" }
+            },
+            "required": ["path", "addedManually"]
+          },
+          "default": [],
+          "description": "U++ source tree directories with addedManually flag. Items with addedManually=true are preserved across scans."
+        },
+        "upp.enabledAssemblies": {
+          "type": "array",
           "items": { "type": "string" },
           "default": [],
-          "description": "Manually added U++ installation directories. Must contain uppsrc/."
+          "description": "List of .var file paths that are enabled. Only enabled assemblies appear in the packages table. Managed via the Source Trees panel."
+        },
+        "upp.scannedAssemblies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "List of all .var file paths found during the last scan. Used to restore scan results when the Source Trees panel is reopened."
         },
         "upp.varDir": {
           "type": "string",
@@ -236,7 +255,7 @@
           "type": "array",
           "items": { "type": "string" },
           "default": ["~"],
-          "description": "Directories to recursively scan for .var assembly files. Use ~ for home directory. Use the 'Scan for Assemblies' button in the UPP sidebar to trigger a scan."
+          "description": "Directories to recursively scan for .var assembly files. Use ~ for home directory. Use the 'Scan for .var Files' button in the Source Trees panel to trigger a scan."
         },
         "upp.workspacesDir": {
           "type": "string",
