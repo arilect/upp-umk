@@ -25,7 +25,7 @@ import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, s
 import { syncWorkspaces } from './workspace';
 import { doAction, ensureActiveAssembly } from './actions';
 import {
-  selectAssembly, selectPackage, selectConfig,
+  selectAssembly, selectPackage, selectConfig, setConfig,
   editDescription, newPackage, newAssembly,
 } from './panels';
 import { showBuildMethodPanel } from './buildMethodPanel';
@@ -175,6 +175,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.selectAssembly',     () => selectAssembly()),
     vscode.commands.registerCommand('upp.selectPackage',      () => selectPackage()),
     vscode.commands.registerCommand('upp.selectConfig',       () => selectConfig()),
+    vscode.commands.registerCommand('upp.setConfig',          (value: string) => setConfig(value)),
     vscode.commands.registerCommand('upp.selectBuildMethod',  () => selectBuildMethod()),
     vscode.commands.registerCommand('upp.selectLinkMode',     () => selectLinkMode()),
     vscode.commands.registerCommand('upp.setLinkMode',        (value: string) => setLinkMode(value as 'all-static' | 'use-shared' | 'all-shared')),

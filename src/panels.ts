@@ -154,6 +154,12 @@ export async function selectConfig() {
   await cfg.update('configurationFlag', configurationFlag, vscode.ConfigurationTarget.Workspace);
 }
 
+export async function setConfig(value: string) {
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const configurationFlag = value.replace(/\s+/g, ',').replace(/,+/g, ',');
+  await cfg.update('configurationFlag', configurationFlag, vscode.ConfigurationTarget.Workspace);
+}
+
 // ─── Edit Description ────────────────────────────────────────────────────────
 
 export async function editDescription() {

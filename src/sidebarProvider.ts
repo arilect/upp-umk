@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { Assembly, findBuildMethods, parseBmFile } from './assemblyParser';
+import * as fs from 'fs';
+import { Assembly, findBuildMethods, parseBmFile, parseMainConfigs } from './assemblyParser';
 import { UppInstallation } from './installations';
 import { computeBinaryPath } from './outputDir';
 
@@ -43,6 +44,9 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
             break;
           case 'setLinkMode':
             vscode.commands.executeCommand('upp.setLinkMode', message.value);
+            break;
+          case 'setConfig':
+            vscode.commands.executeCommand('upp.setConfig', message.value);
             break;
         }
       },
@@ -116,6 +120,21 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const installationLabel = this.installation?.label ?? 'click to set';
     const isWindows = process.platform === 'win32';
 
+    // Config flags from .upp file
+    const configCurrent = cfg.get<string>('configurationFlag', '');
+    let configOptions: string[] = [];
+    if (this.assembly && this.mainPackage && this.assembly.nests.length > 0) {
+      const pkgDir = path.join(
+        this.assembly.nests.find(n =>
+          fs.existsSync(path.join(n, this.mainPackage!.replace(/\//g, path.sep)))
+        ) ?? this.assembly.nests[0],
+        this.mainPackage.replace(/\//g, path.sep)
+      );
+      const pkgLeaf = path.basename(pkgDir);
+      const uppFile = path.join(pkgDir, `${pkgLeaf}.upp`);
+      configOptions = parseMainConfigs(uppFile);
+    }
+
     const varDir = cfg.get<string>('varDir', '');
     const bmName = cfg.get<string>('buildMethod', '');
     const bms = findBuildMethods(varDir);
@@ -185,6 +204,10 @@ function selectOutput(value) {
 function selectLinkMode(value) {
   closeAllDropdowns();
   vscode.postMessage({ command: 'setLinkMode', value: value });
+}
+function selectConfig(value) {
+  closeAllDropdowns();
+  vscode.postMessage({ command: 'setConfig', value: value });
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
@@ -367,12 +390,15 @@ document.addEventListener('DOMContentLoaded', () => {
     flex-shrink: 0;
   }
   .dropdown-btn .value {
-    color: var(--value-fg);
+    color: #000;
     text-align: right;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    background: var(--vscode-button-background, #0e639c);
+    padding: 2px 8px;
+    border-radius: 6px;
   }
   .dropdown-btn .chevron {
     color: var(--label-fg);
@@ -387,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
     display: none;
     position: absolute;
     left: 0;
-    right: 0;
+    width: max-content;
+    min-width: 100%;
     top: 100%;
     z-index: 1000;
     background: var(--vscode-editor-background, #1e1e1e);
@@ -493,7 +520,26 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
   </div>
-  ${row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')}
+  ${configOptions.length > 0
+    ? `<div class="dropdown-container">
+        <button class="dropdown-btn" onclick="toggleDropdown('config-dropdown')">
+          <span class="label">Config Flags</span>
+          <span class="value">${configCurrent ? '+' + this._esc(configCurrent) : this._esc(none)}</span>
+          <span class="chevron">\u25BE</span>
+        </button>
+        <div id="config-dropdown" class="dropdown-options">
+          ${configOptions.map(c => {
+            const val = c.replace(/\s+/g, ',').replace(/,+/g, ',');
+            const isSelected = val === configCurrent;
+            return `<div class="dropdown-option ${isSelected ? 'selected' : ''}" onclick="selectConfig('${this._esc(val)}')">
+              <span>${this._esc(c)}</span>
+              ${isSelected ? '<span class="check">\u2713</span>' : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`
+    : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
+  }
   ${row('Generate clang json', '', 'upp.generateClangJson')}
   ${row('Build As', buildCmdText, 'upp.build')}
 
