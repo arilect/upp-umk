@@ -121,7 +121,7 @@ export function ensureWorkspaceFile(
  *    instead of prompting for a save location each time
  *
  * The user is offered to switch to the new workspace file on first creation,
- * respecting `upp.showWorkspaceSwitchNotification`.
+ * respecting `upp.autoPackageSwitchWorkspace`.
  */
 export async function switchWorkspace(
   assembly: Assembly,
@@ -159,10 +159,25 @@ async function switchWorkspaceInner(
     // The package's own workspace file is already open — settings were
     // written there by ensureWorkspaceFile, nothing more to do.
   } else if (currentWsFile?.scheme === 'file') {
-    // A different workspace file is open — do NOT pollute it with this
-    // package's settings.  The per-package workspace file has already
-    // been updated above; the user simply needs to open it to pick up
-    // the settings (offer below).
+    // A different workspace file is open — write new package settings into
+    // the current workspace file so that after the reload (triggered by
+    // updateWorkspaceFolders below), restoreState picks up the new package.
+    try {
+      const curWsJson = JSON.parse(fs.readFileSync(currentWsFile.fsPath, 'utf8'));
+      curWsJson.settings = curWsJson.settings ?? {};
+      curWsJson.settings['upp.activeAssembly']    = assembly.filePath;
+      curWsJson.settings['upp.activeMainPackage'] = pkgName;
+      if (buildParams) {
+        curWsJson.settings['upp.buildMethod']       = buildParams.buildMethod;
+        curWsJson.settings['upp.configurationFlag'] = buildParams.configurationFlag;
+        curWsJson.settings['upp.buildCommand']      = buildParams.buildCommand;
+      } else {
+        curWsJson.settings['upp.buildMethod']       = cfg.get('buildMethod', '');
+        curWsJson.settings['upp.configurationFlag'] = cfg.get('configurationFlag', '');
+        curWsJson.settings['upp.buildCommand']      = cfg.get('buildCommand', '');
+      }
+      fs.writeFileSync(currentWsFile.fsPath, JSON.stringify(curWsJson, null, 2), 'utf8');
+    } catch { /* non-fatal */ }
   } else {
     // No workspace file at all — persist to .vscode/settings.json so the
     // current session works.
@@ -204,14 +219,14 @@ async function switchWorkspaceInner(
   //       every time the user selects a different package in the same assembly.
   if (wsCreated && !correctWsOpen && !wsFileExists) {
     logWorkspaces(`Workspace file created: ${wsPath}`);
-    const showNotification = cfg.get<boolean>('workspaceCreationNotification', true);
+    const autoSwitch = cfg.get<boolean>('autoPackageSwitchWorkspace', true);
 
-    const shouldSwitch = showNotification
-      ? await vscode.window.showInformationMessage(
+    const shouldSwitch = autoSwitch
+      ? true
+      : await vscode.window.showInformationMessage(
           `UPP: Workspace created for "${pkgName}". Switch?`,
           'Switch', 'Stay'
-        ) === 'Switch'
-      : true; // auto-switch when notification disabled
+        ) === 'Switch';
 
     if (shouldSwitch) {
       await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(wsPath), false);

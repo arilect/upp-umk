@@ -145,7 +145,7 @@ Click **+ New Assembly** at the bottom of the assembly list to create a new asse
 | `upp.compileCommandsCommand` | `""` | Auto-generated umk command for compile_commands.json |
 | `upp.outputConsole` | `"auto"` | When to open output panel: `"always"`, `"auto"`, `"never"` |
 | `upp.restartClangdAfterGenerate` | `true` | Restart clangd after generating compile_commands.json |
-| `upp.showWorkspaceSwitchNotification` | `true` | Show switch prompt when creating/changing workspaces |
+| `upp.autoPackageSwitchWorkspace` | `true` | Auto-switch workspace when selecting a package |
 
 ## Debugging
 

@@ -395,25 +395,15 @@
           "default": false,
           "description": "When enabled, halt the build immediately on the first error."
         },
-        "upp.showWorkspaceSwitchNotification": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show a 'Switch / Stay' prompt when a new .code-workspace is created or a different one is selected. When disabled, the workspace switches automatically."
-        },
-        "upp.workspaceCreationNotification": {
+        "upp.autoPackageSwitchWorkspace": {
           "type": "boolean",
           "default": true,
-          "description": "Show an informational notification when a .code-workspace file is automatically created for an assembly during package selection."
+          "description": "Automatically switch to a new .code-workspace when selecting a package. When disabled, shows a Switch / Stay prompt."
         },
         "upp.workspacesDirPrompted": {
           "type": "boolean",
           "default": false,
           "description": "Internal flag to track whether the user has been prompted to configure a workspace directory."
-        },
-        "upp.autoMoveWorkspaces": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically move .code-workspace files when their assembly directories change location. If false, prompts the user to choose Update/Move/Delete/Ignore for each mismatch."
         },
         "upp.outputConsole": {
           "type": "string",
