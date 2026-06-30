@@ -83,6 +83,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     debugOutputDirPath?: string,
     debugCmdText?: string,
   ) {
+    console.log(`[UPP] sidebar.refresh: assembly=${assembly?.name ?? '(none)'} package=${mainPackage ?? '(none)'}`);
     this.installation       = installation;
     this.assembly           = assembly;
     this.mainPackage        = mainPackage;
@@ -568,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="dropdown-container">
         <button class="dropdown-btn" onclick="toggleDropdown('bm-dropdown')">
           <span class="label-group">
-            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildMethod' })" title="Edit build method">\u270E</span>
+            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildMethod', args: ['${this._esc(bm?.filePath || '')}'] })" title="Edit build method">\u270E</span>
             <span class="label">Build Method</span>
           </span>
           <span class="value">${this._esc(bmName || none)}</span>

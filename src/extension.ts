@@ -29,12 +29,12 @@ import {
   selectAssembly, selectPackage, selectConfig, setConfig,
   editDescription, newPackage, newAssembly,
 } from './panels';
-import { showBuildMethodPanel } from './buildMethodPanel';
 import { showRunOptionsPanel } from './runOptionsPanel';
 import { showInstallationsPanel } from './installationsPanel';
 import { showConfigFlagsPanel } from './configFlagsPanel';
 import { showCppStandardPanel } from './cppStandardPanel';
 import { showBuildEditPanel } from './buildEditPanel';
+import { showBuildMethodPanel, refreshBuildMethodPanel } from './buildMethodPanel';
 import { findBuildMethods } from './assemblyParser';
 import { scanInstallations, UppInstallation } from './installations';
 
@@ -60,7 +60,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      restoreState();
+      console.log(`[UPP] onDidChangeWorkspaceFolders: updateStatusBar only (no restoreState)`);
       updateStatusBar();
     })
   );
@@ -491,7 +491,7 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'UPP:');
     }),
     vscode.commands.registerCommand('upp.showExtensionLogs', () => {
-      vscode.commands.executeCommand('workbench.action.output.action.select');
+      vscode.commands.executeCommand('workbench.action.showOutputChannels');
     }),
     vscode.commands.registerCommand('upp.updateIntelliSense', async () => {
       if (!(await ensureActiveAssembly())) return;
@@ -523,18 +523,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('upp.newPackage', () => newPackage()),
     vscode.commands.registerCommand('upp.newAssembly', () => newAssembly()),
-    vscode.commands.registerCommand('upp.editBuildMethod', async () => {
-      const cfg = vscode.workspace.getConfiguration('upp');
-      const varDir: string = cfg.get('varDir', '');
-      const currentMethod: string = cfg.get('buildMethod', 'CLANG');
-      const bms = findBuildMethods(varDir);
-      const bm = bms.find(b => b.name === currentMethod || b.filePath === currentMethod);
-      if (!bm) {
-        vscode.window.showWarningMessage(`UPP: Build method "${currentMethod}" not found.`);
-        return;
-      }
-      showBuildMethodPanel(bm.filePath);
-    }),
     vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel()),
     vscode.commands.registerCommand('upp.editConfigFlags', () => showConfigFlagsPanel()),
     vscode.commands.registerCommand('upp.editCppStandard', () => showCppStandardPanel()),
@@ -547,6 +535,8 @@ export async function activate(context: vscode.ExtensionContext) {
       await cfg.update('buildMethod', value, vscode.ConfigurationTarget.Workspace);
       await syncBuildCommand();
       updateStatusBar();
+      const varDir = cfg.get<string>('varDir', '');
+      refreshBuildMethodPanel(value, varDir);
     }),
     vscode.commands.registerCommand('upp.editBuildCmd', async () => {
       const cfg = vscode.workspace.getConfiguration('upp');
@@ -561,6 +551,26 @@ export async function activate(context: vscode.ExtensionContext) {
         await cfg.update('buildCommand', edited, vscode.ConfigurationTarget.Workspace);
         updateStatusBar();
       }
+    }),
+    vscode.commands.registerCommand('upp.editBuildMethod', (filePath?: string) => {
+      if (filePath) {
+        showBuildMethodPanel(filePath);
+        return;
+      }
+      const cfg = vscode.workspace.getConfiguration('upp');
+      const bmName = cfg.get<string>('buildMethod', '');
+      if (!bmName) {
+        vscode.window.showWarningMessage('UPP: No build method selected.');
+        return;
+      }
+      const varDir = cfg.get<string>('varDir', '');
+      const bms = findBuildMethods(varDir);
+      const bm = bms.find(b => b.name === bmName || b.filePath === bmName);
+      if (!bm) {
+        vscode.window.showWarningMessage(`UPP: Build method "${bmName}" not found.`);
+        return;
+      }
+      showBuildMethodPanel(bm.filePath);
     }),
     vscode.commands.registerCommand('upp.editInstallations', () => showInstallationsPanel()),
     vscode.commands.registerCommand('upp.scanInstallations', async () => {
@@ -623,7 +633,12 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('upp')) {
-        restoreState();
+        if (e.affectsConfiguration('upp.activeAssembly') || e.affectsConfiguration('upp.activeMainPackage')) {
+          console.log(`[UPP] onDidChangeConfiguration: activeAssembly or activeMainPackage changed — calling restoreState`);
+          restoreState();
+        } else {
+          console.log(`[UPP] onDidChangeConfiguration: upp config changed (not assembly/package) — skipping restoreState`);
+        }
         updateStatusBar();
         if (
           e.affectsConfiguration('upp.buildMethod') ||
