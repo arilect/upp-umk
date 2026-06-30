@@ -2,7 +2,32 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { parseBmFile, writeBmFile, BuildMethodData } from './assemblyParser';
 
+let currentPanel: vscode.WebviewPanel | undefined;
+let currentFilePath: string | undefined;
+
+export function refreshBuildMethodPanel(buildMethod: string, varDir: string) {
+  if (!currentPanel || !currentFilePath) return;
+  const { findBuildMethods } = require('./assemblyParser') as typeof import('./assemblyParser');
+  const bms = findBuildMethods(varDir);
+  const bm = bms.find((b: { name: string; filePath: string }) => b.name === buildMethod || b.filePath === buildMethod);
+  if (!bm) return;
+  currentFilePath = bm.filePath;
+  const data = parseBmFile(bm.filePath);
+  currentPanel.title = `Build Method: ${path.basename(bm.filePath, '.bm')}`;
+  currentPanel.webview.html = buildHtml(data);
+}
+
 export function showBuildMethodPanel(filePath: string) {
+  if (currentPanel) {
+    currentFilePath = filePath;
+    const data = parseBmFile(filePath);
+    currentPanel.title = `Build Method: ${path.basename(filePath, '.bm')}`;
+    currentPanel.webview.html = buildHtml(data);
+    currentPanel.reveal(vscode.ViewColumn.One);
+    return;
+  }
+
+  currentFilePath = filePath;
   const panel = vscode.window.createWebviewPanel(
     'uppBuildMethod',
     `Build Method: ${path.basename(filePath, '.bm')}`,
@@ -12,6 +37,12 @@ export function showBuildMethodPanel(filePath: string) {
 
   const data = parseBmFile(filePath);
   panel.webview.html = buildHtml(data);
+  currentPanel = panel;
+
+  panel.onDidDispose(() => {
+    currentPanel = undefined;
+    currentFilePath = undefined;
+  });
 
   panel.webview.onDidReceiveMessage(async (msg) => {
     if (msg.type === 'save') {

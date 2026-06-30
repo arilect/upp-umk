@@ -131,7 +131,6 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const buildCmdText  = (this.assembly && this.mainPackage)
       ? [umkPathDisplay, this.assembly.name, path.basename(this.mainPackage), method, effectiveFlags ? `-${effectiveFlags}` : '', extra !== none ? `+${extra}` : ''].filter(Boolean).join(' ')
       : cfg.get<string>('buildCommand', '') || none;
-    const cppStandard   = cfg.get<string>('cppStandard', '') || 'c++17 (default)';
     const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
     const installationLabel = this.installation?.label ?? 'click to set';
     const isWindows = process.platform === 'win32';
@@ -165,6 +164,10 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     if (bmName) {
       if (bm) methodVars = parseBmFile(bm.filePath);
     }
+
+    // Extract C++ standard from .bm file's COMMON_CPP_OPTIONS (-std=c++XX)
+    const bmStdMatch = methodVars?.COMMON_CPP_OPTIONS?.match(/-std=(c\+\+\S+)/);
+    const cppStandard = bmStdMatch ? bmStdMatch[1] : (cfg.get<string>('cppStandard', '') || 'c++17 (default)');
     const binaryPath = computeBinaryPath(this.installation, this.assembly, this.mainPackage, bmName, buildFlagsVal, confFlag, methodVars);
 
     const runLabel  = this.running ? '\u23F9 Stop' : '\u25B6 Run';
@@ -378,6 +381,17 @@ document.addEventListener('DOMContentLoaded', () => {
   .group-header:hover { background: var(--row-hover); }
   .group-header .label { color: var(--value-fg); margin-left: 0; }
   .group-header .value { color: var(--accent); font-size: 14px; font-weight: 600; margin-left: auto; }
+  .group-header .edit-icon {
+    font-size: 1.2em;
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: 2px;
+    opacity: 0.6;
+    margin-left: 12px;
+    margin-right: 4px;
+  }
+  .group-header .edit-icon:hover { opacity: 1; background: var(--row-hover); }
   .group-header .build-icon {
     font-size: 16px;
     flex-shrink: 0;
@@ -514,6 +528,15 @@ document.addEventListener('DOMContentLoaded', () => {
     opacity: 1;
     background: var(--row-hover);
   }
+  .output-btn {
+    justify-content: space-between;
+    position: relative;
+  }
+  .output-btn .value {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
 </style>
 </head>
 <body>
@@ -638,23 +661,10 @@ document.addEventListener('DOMContentLoaded', () => {
       })()
     : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
   }
-  <div class="dropdown-container">
-    <button class="dropdown-btn" onclick="toggleDropdown('output-dropdown')">
-      <span class="label">Output Mode</span>
-      <span class="value">${this._esc(outputLabel)}</span>
-      <span class="chevron">\u25BE</span>
-    </button>
-    <div id="output-dropdown" class="dropdown-options">
-      <div class="dropdown-option ${outputLabel === 'Debug' ? 'selected' : ''}" onclick="selectOutput('Debug')">
-        <span>Debug</span>
-        ${outputLabel === 'Debug' ? '<span class="check">\u2713</span>' : ''}
-      </div>
-      <div class="dropdown-option ${outputLabel === 'Release' ? 'selected' : ''}" onclick="selectOutput('Release')">
-        <span>Release</span>
-        ${outputLabel === 'Release' ? '<span class="check">\u2713</span>' : ''}
-      </div>
-    </div>
-  </div>
+  <button class="dropdown-btn output-btn" onclick="selectOutput('${outputLabel === 'Debug' ? 'Release' : 'Debug'}')">
+    <span class="label">Output Mode</span>
+    <span class="value">${this._esc(outputLabel)}</span>
+  </button>
   <div class="group">
     <div class="group-header" data-group-id="buildMode" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
@@ -668,9 +678,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'upp.cleanBuild' })" style="cursor: pointer;">
         <span class="label">Clean the build</span>
       </div>
-      <div class="row" onclick="toggleStopOnErrors()" style="cursor: pointer;">
-        <span class="label">Stop on errors</span>
-        <span class="value" id="stop-on-errors-val">${stopOnErrors ? '\u2611' : '\u2610'}</span>
+      <div class="stop-on-errors" onclick="toggleStopOnErrors()" style="cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: var(--vscode-font-size, 13px); color: var(--vscode-foreground, #ccc);">
+        <input type="checkbox" id="stop-on-errors-cb" ${stopOnErrors ? 'checked' : ''} onclick="event.stopPropagation(); toggleStopOnErrors()" style="width: 16px; height: 16px; margin: 0; cursor: pointer;" />
+        <span style="cursor: pointer;">Stop on errors</span>
       </div>
     </div>
   </div>
