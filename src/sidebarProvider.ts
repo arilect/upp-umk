@@ -635,9 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
   ${separator}
 
   ${button(runLabel, runCmd, this.running ? 'btn-run running' : 'btn-run')}
-  ${row('Run Options', 'settings', 'upp.editRunOptions')}
-
   ${button(debugLabel, debugCmd, this.debugging ? 'btn-debug debugging' : 'btn-debug')}
+
+  ${row('Run Options', 'settings', 'upp.editRunOptions')}
 
   ${separator}
 
