@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${row('Generate clang json', '', 'upp.generateClangJson')}
 
-  ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'workbench.action.openGlobalKeybindings')}
+  ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'upp.openKeybindings')}
 
   ${row('Settings', '', 'workbench.action.openWorkspaceSettings')}
   ${row('Help', 'README', 'upp.openHelp')}

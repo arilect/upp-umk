@@ -456,6 +456,9 @@ export async function activate(context: vscode.ExtensionContext) {
       const readmeUri = vscode.Uri.joinPath(context.extensionUri, 'README.md');
       vscode.commands.executeCommand('markdown.showPreview', readmeUri);
     }),
+    vscode.commands.registerCommand('upp.openKeybindings', () => {
+      vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'UPP:');
+    }),
     vscode.commands.registerCommand('upp.updateIntelliSense', async () => {
       if (!(await ensureActiveAssembly())) return;
       const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
