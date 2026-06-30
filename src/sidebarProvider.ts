@@ -48,6 +48,9 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
           case 'setConfig':
             vscode.commands.executeCommand('upp.setConfig', message.value);
             break;
+          case 'setCppStandard':
+            vscode.commands.executeCommand('upp.setCppStandard', message.value);
+            break;
         }
       },
       undefined,
@@ -117,11 +120,13 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const extra         = cfg.get<string>('configurationFlag', '') || none;
     const buildCmdText  = cfg.get<string>('buildCommand', '') || none;
     const cppStandard   = cfg.get<string>('cppStandard', '') || 'c++17 (default)';
+    const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
     const installationLabel = this.installation?.label ?? 'click to set';
     const isWindows = process.platform === 'win32';
 
     // Config flags from .upp file
     const configCurrent = cfg.get<string>('configurationFlag', '');
+    const configAliases: Record<string, string> = cfg.get('configAliases', {});
     let configOptions: string[] = [];
     if (this.assembly && this.mainPackage && this.assembly.nests.length > 0) {
       const pkgDir = path.join(
@@ -208,6 +213,10 @@ function selectLinkMode(value) {
 function selectConfig(value) {
   closeAllDropdowns();
   vscode.postMessage({ command: 'setConfig', value: value });
+}
+function selectCppStandard(value) {
+  closeAllDropdowns();
+  vscode.postMessage({ command: 'setCppStandard', value: value });
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
@@ -384,7 +393,12 @@ document.addEventListener('DOMContentLoaded', () => {
     gap: 8px;
   }
   .dropdown-btn:hover { background: var(--row-hover); }
-  .dropdown-btn .label {
+  .dropdown-btn .label-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .dropdown-btn .label-group .label {
     color: var(--label-fg);
     white-space: nowrap;
     flex-shrink: 0;
@@ -448,6 +462,21 @@ document.addEventListener('DOMContentLoaded', () => {
     font-size: 13px;
     flex-shrink: 0;
   }
+  .dropdown-btn .edit-icon {
+    color: var(--label-fg);
+    font-size: inherit;
+    flex-shrink: 0;
+    padding: 0;
+    margin-right: 2px;
+    opacity: 0.6;
+    cursor: pointer;
+    border-radius: 2px;
+    align-self: center;
+  }
+  .dropdown-btn .edit-icon:hover {
+    opacity: 1;
+    background: var(--row-hover);
+  }
 </style>
 </head>
 <body>
@@ -499,7 +528,29 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
       </div>
-      ${row('C++ Standard', cppStandard, 'workbench.action.openWorkspaceSettings')}
+      <div class="dropdown-container">
+        <button class="dropdown-btn" onclick="toggleDropdown('cppstd-dropdown')">
+          <span class="label-group">
+            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editCppStandard' })" title="Edit C++ standards">\u270E</span>
+            <span class="label">C++ Standard</span>
+          </span>
+          <span class="value">${this._esc(cppStandard || 'default')}</span>
+          <span class="chevron">\u25BE</span>
+        </button>
+        <div id="cppstd-dropdown" class="dropdown-options">
+          <div class="dropdown-option ${!cppStandard ? 'selected' : ''}" onclick="selectCppStandard('')">
+            <span>default (c++17)</span>
+            ${!cppStandard ? '<span class="check">\u2713</span>' : ''}
+          </div>
+          ${cppStandardOptions.map(s => {
+            const isSelected = s === cppStandard;
+            return `<div class="dropdown-option ${isSelected ? 'selected' : ''}" onclick="selectCppStandard('${this._esc(s)}')">
+              <span>${this._esc(s)}</span>
+              ${isSelected ? '<span class="check">\u2713</span>' : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
     </div>
   </div>
 
@@ -521,23 +572,33 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
   ${configOptions.length > 0
-    ? `<div class="dropdown-container">
+    ? (() => {
+        const currentNormalized = configCurrent.replace(/\s+/g, ',').replace(/,+/g, ',');
+        const currentAlias = configAliases[currentNormalized] || '';
+        const displayValue = currentAlias ? currentAlias : (configCurrent ? '+' + configCurrent : none);
+        return `<div class="dropdown-container">
         <button class="dropdown-btn" onclick="toggleDropdown('config-dropdown')">
-          <span class="label">Config Flags</span>
-          <span class="value">${configCurrent ? '+' + this._esc(configCurrent) : this._esc(none)}</span>
+          <span class="label-group">
+            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editConfigFlags' })" title="Edit config flags">\u270E</span>
+            <span class="label">Config Flags</span>
+          </span>
+          <span class="value">${this._esc(displayValue)}</span>
           <span class="chevron">\u25BE</span>
         </button>
         <div id="config-dropdown" class="dropdown-options">
           ${configOptions.map(c => {
             const val = c.replace(/\s+/g, ',').replace(/,+/g, ',');
             const isSelected = val === configCurrent;
+            const alias = configAliases[val] || '';
+            const label = alias ? alias + ' (' + c + ')' : c;
             return `<div class="dropdown-option ${isSelected ? 'selected' : ''}" onclick="selectConfig('${this._esc(val)}')">
-              <span>${this._esc(c)}</span>
+              <span>${this._esc(label)}</span>
               ${isSelected ? '<span class="check">\u2713</span>' : ''}
             </div>`;
           }).join('')}
         </div>
-      </div>`
+      </div>`;
+      })()
     : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
   }
   ${row('Generate clang json', '', 'upp.generateClangJson')}

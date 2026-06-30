@@ -31,6 +31,8 @@ import {
 import { showBuildMethodPanel } from './buildMethodPanel';
 import { showRunOptionsPanel } from './runOptionsPanel';
 import { showInstallationsPanel } from './installationsPanel';
+import { showConfigFlagsPanel } from './configFlagsPanel';
+import { showCppStandardPanel } from './cppStandardPanel';
 import { findBuildMethods } from './assemblyParser';
 import { scanInstallations, UppInstallation } from './installations';
 
@@ -497,6 +499,12 @@ export async function activate(context: vscode.ExtensionContext) {
       showBuildMethodPanel(bm.filePath);
     }),
     vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel()),
+    vscode.commands.registerCommand('upp.editConfigFlags', () => showConfigFlagsPanel()),
+    vscode.commands.registerCommand('upp.editCppStandard', () => showCppStandardPanel()),
+    vscode.commands.registerCommand('upp.setCppStandard', async (value: string) => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      await cfg.update('cppStandard', value, vscode.ConfigurationTarget.Workspace);
+    }),
     vscode.commands.registerCommand('upp.editInstallations', () => showInstallationsPanel()),
     vscode.commands.registerCommand('upp.scanInstallations', async () => {
       const found = scanInstallations();

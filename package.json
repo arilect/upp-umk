@@ -288,10 +288,24 @@
           "default": "",
           "description": "Compilation +FLAGs passed to umk (e.g. 'GUI,MT'). Passed as +FLAG,FLAG."
         },
+        "upp.configAliases": {
+          "type": "object",
+          "default": {},
+          "description": "User-defined aliases for config flags. Keys are raw flag strings (e.g. 'GUI,MT'), values are display names (e.g. 'Desktop GUI').",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "upp.cppStandard": {
           "type": "string",
           "default": "",
           "description": "Override the C++ standard for IntelliSense (e.g. 'c++17', 'c++20'). Leave empty to use the platform default."
+        },
+        "upp.cppStandardOptions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["c++23", "c++20", "c++17", "c++14", "c++11", "c++98"],
+          "description": "List of C++ standard options shown in the sidebar dropdown."
         },
         "upp.guiMode": {
           "type": "string",
