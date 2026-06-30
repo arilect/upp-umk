@@ -80,126 +80,153 @@
     "commands": [
       {
         "command": "upp.build",
-        "title": "UPP: Build Package",
+        "title": "Build Package",
+        "category": "UPP",
         "icon": "$(gear)"
       },
       {
         "command": "upp.run",
-        "title": "UPP: Build & Run Package",
+        "title": "Build & Run Package",
+        "category": "UPP",
         "icon": "$(play)"
       },
       {
         "command": "upp.openHelp",
-        "title": "UPP: Help",
+        "title": "Help",
+        "category": "UPP",
         "icon": "$(question)"
       },
       {
         "command": "upp.rebuild",
-        "title": "UPP: Rebuild All (-a)",
+        "title": "Rebuild All (-a)",
+        "category": "UPP",
         "icon": "$(refresh)"
       },
       {
         "command": "upp.selectInstallation",
-        "title": "UPP: Select U++ Source Tree",
+        "title": "Select U++ Source Tree",
+        "category": "UPP",
         "icon": "$(versions)"
       },
       {
         "command": "upp.selectAssembly",
-        "title": "UPP: Select Active Assembly",
+        "title": "Select Active Assembly",
+        "category": "UPP",
         "icon": "$(add)"
       },
       {
         "command": "upp.selectPackage",
-        "title": "UPP: Select Active Package"
+        "title": "Select Active Package",
+        "category": "UPP"
       },
       {
         "command": "upp.selectConfig",
-        "title": "UPP: Select Active Config"
+        "title": "Select Active Config",
+        "category": "UPP"
       },
       {
         "command": "upp.updateIntelliSense",
-        "title": "UPP: Update IntelliSense (c_cpp_properties.json)"
+        "title": "Update IntelliSense (c_cpp_properties.json)",
+        "category": "UPP"
       },
       {
         "command": "upp.selectBuildParams",
-        "title": "UPP: Select Build Method & Config"
+        "title": "Select Build Method & Config",
+        "category": "UPP"
       },
       {
         "command": "upp.generateCompileCommands",
-        "title": "UPP: Generate compile_commands.json",
+        "title": "Generate compile_commands.json",
+        "category": "UPP",
         "icon": "$(json)"
       },
       {
         "command": "upp.stopRun",
-        "title": "UPP: Stop Running Process",
+        "title": "Stop Running Process",
+        "category": "UPP",
         "icon": "$(debug-stop)"
       },
       {
         "command": "upp.selectBuildMethod",
-        "title": "UPP: Select Build Method"
+        "title": "Select Build Method",
+        "category": "UPP"
       },
       {
         "command": "upp.selectOutput",
-        "title": "UPP: Select Output Path"
+        "title": "Select Output Path",
+        "category": "UPP"
       },
       {
         "command": "upp.editDescription",
-        "title": "UPP: Edit Package Description"
+        "title": "Edit Package Description",
+        "category": "UPP"
       },
       {
         "command": "upp.newPackage",
-        "title": "UPP: New Package",
+        "title": "New Package",
+        "category": "UPP",
         "icon": "$(file-add)"
       },
       {
         "command": "upp.newAssembly",
-        "title": "UPP: New Assembly",
+        "title": "New Assembly",
+        "category": "UPP",
         "icon": "$(add)"
       },
       {
         "command": "upp.editBuildMethod",
-        "title": "UPP: Edit Build Method"
+        "title": "Edit Build Method",
+        "category": "UPP"
       },
       {
         "command": "upp.selectLinkMode",
-        "title": "UPP: Select Link Mode"
+        "title": "Select Link Mode",
+        "category": "UPP"
       },
       {
         "command": "upp.editRunOptions",
-        "title": "UPP: Edit Run Options"
+        "title": "Edit Run Options",
+        "category": "UPP"
       },
       {
         "command": "upp.generateClangJson",
-        "title": "UPP: Generate clang json",
+        "title": "Generate clang json",
+        "category": "UPP",
         "icon": "$(json)"
       },
       {
         "command": "upp.syncWorkspaces",
-        "title": "UPP: Sync Workspaces",
+        "title": "Sync Workspaces",
+        "category": "UPP",
         "icon": "$(sync)"
       },
       {
         "command": "upp.debug",
-        "title": "UPP: Debug Build & Run",
+        "title": "Debug Build & Run",
+        "category": "UPP",
         "icon": "$(debug-start)"
       },
       {
         "command": "upp.stopDebug",
-        "title": "UPP: Stop Debugging",
+        "title": "Stop Debugging",
+        "category": "UPP",
         "icon": "$(debug-stop)"
       },
       {
         "command": "upp.showLogs",
-        "title": "UPP: Show Logs"
+        "title": "Show Logs",
+        "category": "UPP"
       },
       {
         "command": "upp.openOutputDir",
-        "title": "UPP: Open Output Directory",
+        "title": "Open Output Directory",
+        "category": "UPP",
         "icon": "$(folder-opened)"
       },
       {
         "command": "upp.copyRunPath",
-        "title": "UPP: Copy Run Path"
+        "title": "Copy Run Path",
+        "category": "UPP"
       }
     ],
     "configuration": {
