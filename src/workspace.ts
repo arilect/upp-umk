@@ -93,6 +93,11 @@ export function ensureWorkspaceFile(
       wsJson.settings['upp.buildMethod']        = buildParams.buildMethod;
       wsJson.settings['upp.configurationFlag']  = buildParams.configurationFlag;
       wsJson.settings['upp.buildCommand']       = buildParams.buildCommand;
+    } else if (!wsJson.settings['upp.buildMethod']) {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      wsJson.settings['upp.buildMethod']        = cfg.get('buildMethod', '');
+      wsJson.settings['upp.configurationFlag']  = cfg.get('configurationFlag', '');
+      wsJson.settings['upp.buildCommand']       = cfg.get('buildCommand', '');
     }
 
     fs.writeFileSync(wsPath, JSON.stringify(wsJson, null, 2), 'utf8');
@@ -119,6 +124,16 @@ export function ensureWorkspaceFile(
  * respecting `upp.showWorkspaceSwitchNotification`.
  */
 export async function switchWorkspace(
+  assembly: Assembly,
+  pkgName: string,
+  pkgDir: string,
+  uppFile: string,
+  buildParams?: { buildMethod: string; configurationFlag: string; buildCommand: string },
+): Promise<void> {
+  await switchWorkspaceInner(assembly, pkgName, pkgDir, uppFile, buildParams);
+}
+
+async function switchWorkspaceInner(
   assembly: Assembly,
   pkgName: string,
   pkgDir: string,
@@ -158,6 +173,26 @@ export async function switchWorkspace(
       await persistSetting('upp.configurationFlag', buildParams.configurationFlag, cfg);
       console.log(`[UPP] workspace.switchWorkspace → buildCommand = "${buildParams.buildCommand}"`);
       await persistSetting('upp.buildCommand', buildParams.buildCommand, cfg);
+    } else if (wsCreated) {
+      // Read saved settings from the workspace file we just wrote
+      try {
+        const wsJson = JSON.parse(fs.readFileSync(wsCreated, 'utf8'));
+        const wsSettings = wsJson.settings ?? {};
+        const bm = wsSettings['upp.buildMethod'] ?? cfg.get<string>('buildMethod', '');
+        const cf = wsSettings['upp.configurationFlag'] ?? cfg.get<string>('configurationFlag', '');
+        const bc = wsSettings['upp.buildCommand'] ?? cfg.get<string>('buildCommand', '');
+        if (bm) await persistSetting('upp.buildMethod', bm, cfg);
+        if (cf) await persistSetting('upp.configurationFlag', cf, cfg);
+        if (bc) await persistSetting('upp.buildCommand', bc, cfg);
+      } catch {
+        // fallback to current config
+        const bm = cfg.get<string>('buildMethod', '');
+        const cf = cfg.get<string>('configurationFlag', '');
+        const bc = cfg.get<string>('buildCommand', '');
+        if (bm) await persistSetting('upp.buildMethod', bm, cfg);
+        if (cf) await persistSetting('upp.configurationFlag', cf, cfg);
+        if (bc) await persistSetting('upp.buildCommand', bc, cfg);
+      }
     }
   }
 

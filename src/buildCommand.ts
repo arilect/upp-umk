@@ -275,33 +275,7 @@ export async function selectBuildParams(pkgDir: string): Promise<BuildParams | u
 
   if (!chosenBm) return undefined; // cancelled
 
-  // ── Main config ──
-  const pkgLeaf = path.basename(pkgDir);
-  const uppFile = path.join(pkgDir, `${pkgLeaf}.upp`);
-  const configs = parseMainConfigs(uppFile);
-  let chosenConfig: string | undefined;
-
-  if (configs.length === 0) {
-    chosenConfig = await vscode.window.showInputBox({
-      prompt: 'Compilation flags (optional, no mainconfig found in .upp)',
-      placeHolder: 'e.g. GUI MT',
-      value: cfg.get('configurationFlag', ''),
-    });
-    chosenConfig = chosenConfig?.trim() ?? '';
-  } else {
-    const current: string = cfg.get('configurationFlag', '');
-    const cfgChoices = configs.map(c => ({
-      label: c,
-      picked: c === current,
-    }));
-    const picked = await vscode.window.showQuickPick(cfgChoices, {
-      placeHolder: 'Select main configuration',
-    });
-    if (picked) chosenConfig = picked.label;
-  }
-
-  // mainconfig flags are space-separated in .upp but umk wants comma-separated +FLAGS
-  const configurationFlag = (chosenConfig ?? '').replace(/\s+/g, ',').replace(/,+/g, ',');
+  const configurationFlag = cfg.get<string>('configurationFlag', '');
 
   const buildCommand = buildCommandLine(
     resolveUmkPath(cfg, activeInstallation),
