@@ -8,7 +8,7 @@ import {
   setActiveAssembly, setActiveMainPackage, setActivePackageDescription, setActivePackageUppFile,
   outputChannel, updateStatusBar,
 } from './state';
-import { syncBuildCommand, selectBuildParams } from './buildCommand';
+import { syncBuildCommand } from './buildCommand';
 import { switchWorkspace } from './workspace';
 import { updateIntelliSense } from './intelliSense';
 import { syncCompileCommandsCommand, updateCompileCommandsWatcher } from './compileCommands';
@@ -43,19 +43,29 @@ export async function selectAssembly() {
     activeAssembly?.name,
     activeMainPackage,
     async (assembly, pkgName, pkgDir, uppFile, description) => {
-      setActiveAssembly(assembly);
-      setActiveMainPackage(pkgName);
-      setActivePackageDescription(description);
-      setActivePackageUppFile(uppFile);
+      try {
+        console.log(`[UPP] selectAssembly callback START pkg=${pkgName} assembly=${assembly.name}`);
+        setActiveAssembly(assembly);
+        setActiveMainPackage(pkgName);
+        setActivePackageDescription(description);
+        setActivePackageUppFile(uppFile);
 
-      updateStatusBar();
+        updateStatusBar();
 
-      const buildParams = await selectBuildParams(pkgDir);
-      await switchWorkspace(assembly, pkgName, pkgDir, uppFile, buildParams);
+        console.log(`[UPP] selectAssembly: calling syncBuildCommand`);
+        await syncBuildCommand();
+        console.log(`[UPP] selectAssembly: calling switchWorkspace`);
+        await switchWorkspace(assembly, pkgName, pkgDir, uppFile, undefined);
+        console.log(`[UPP] selectAssembly: switchWorkspace done`);
 
-      const cfgInner = vscode.workspace.getConfiguration('upp');
-      await syncCompileCommandsCommand(assembly, pkgName, cfgInner);
-      updateCompileCommandsWatcher(assembly, pkgName, outputChannel);
+        const cfgInner = vscode.workspace.getConfiguration('upp');
+        await syncCompileCommandsCommand(assembly, pkgName, cfgInner);
+        updateCompileCommandsWatcher(assembly, pkgName, outputChannel);
+        console.log(`[UPP] selectAssembly callback END pkg=${pkgName}`);
+      } catch (err: any) {
+        console.error(`[UPP] selectAssembly callback ERROR:`, err);
+        vscode.window.showErrorMessage(`UPP: Failed to activate package: ${err.message}`);
+      }
     },
     () => newAssembly(),
   );
@@ -88,18 +98,22 @@ export async function selectPackage() {
     activeAssembly?.name,
     activeMainPackage,
     async (assembly, pkgName, pkgDir, uppFile, description) => {
-      setActiveAssembly(assembly);
-      setActiveMainPackage(pkgName);
-      setActivePackageDescription(description);
-      setActivePackageUppFile(uppFile);
+      try {
+        setActiveAssembly(assembly);
+        setActiveMainPackage(pkgName);
+        setActivePackageDescription(description);
+        setActivePackageUppFile(uppFile);
 
-      updateStatusBar();
+        updateStatusBar();
 
-      await syncBuildCommand();
-      await switchWorkspace(assembly, pkgName, pkgDir, uppFile, undefined);
+        await syncBuildCommand();
+        await switchWorkspace(assembly, pkgName, pkgDir, uppFile, undefined);
 
-      await syncCompileCommandsCommand(assembly, pkgName, cfg);
-      updateCompileCommandsWatcher(assembly, pkgName, outputChannel);
+        await syncCompileCommandsCommand(assembly, pkgName, cfg);
+        updateCompileCommandsWatcher(assembly, pkgName, outputChannel);
+      } catch (err: any) {
+        vscode.window.showErrorMessage(`UPP: Failed to activate package: ${err.message}`);
+      }
     },
     () => newAssembly(),
   );
