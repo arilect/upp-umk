@@ -55,8 +55,8 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
           case 'setBuildMethod':
             vscode.commands.executeCommand('upp.setBuildMethod', message.value);
             break;
-          case 'editBuildCmd':
-            vscode.commands.executeCommand('upp.editBuildCmd');
+          case 'toggleStopOnErrors':
+            vscode.commands.executeCommand('upp.toggleStopOnErrors');
             break;
         }
       },
@@ -135,6 +135,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
     const installationLabel = this.installation?.label ?? 'click to set';
     const isWindows = process.platform === 'win32';
+    const stopOnErrors = cfg.get<boolean>('stopOnErrors', false);
 
     // Config flags from .upp file
     const configCurrent = cfg.get<string>('configurationFlag', '');
@@ -234,8 +235,8 @@ function selectBuildMethod(value) {
   closeAllDropdowns();
   vscode.postMessage({ command: 'setBuildMethod', value: value });
 }
-function editBuildCmd() {
-  vscode.postMessage({ command: 'editBuildCmd' });
+function toggleStopOnErrors() {
+  vscode.postMessage({ command: 'toggleStopOnErrors' });
 }
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
@@ -658,17 +659,18 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="group-header" data-group-id="buildMode" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
       <span class="label">Build</span>
+      <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildOptions' })" title="Edit build options">\u270E</span>
       <span class="build-icon build-go" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.build' })" title="Build">\u26A1</span>
       <span class="build-icon build-rebuild" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.rebuild' })" title="Rebuild All">\u25B6</span>
       <span class="value">${this._esc((effectiveFlags ? '-' + effectiveFlags : '') + (configCurrent ? ' +' + configCurrent : '') || none)}</span>
     </div>
     <div class="group-children">
-      <div class="row">
-        <span class="label-group">
-          <span class="edit-icon" onclick="event.stopPropagation(); editBuildCmd()" title="Edit build command">\u270E</span>
-          <span class="label">Build Cmd</span>
-        </span>
-        <span class="value">${this._esc(buildCmdText)}</span>
+      <div class="row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'upp.cleanBuild' })" style="cursor: pointer;">
+        <span class="label">Clean the build</span>
+      </div>
+      <div class="row" onclick="toggleStopOnErrors()" style="cursor: pointer;">
+        <span class="label">Stop on errors</span>
+        <span class="value" id="stop-on-errors-val">${stopOnErrors ? '\u2611' : '\u2610'}</span>
       </div>
     </div>
   </div>
@@ -691,7 +693,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'upp.openKeybindings')}
 
-  ${row('Settings', '', 'workbench.action.openWorkspaceSettings')}
+  <div class="row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'workbench.action.openSettings', args: ['@ext:arilect.upp-umk'] })">
+    <span class="label">Settings</span>
+  </div>
   ${row('Extension Logs', '', 'upp.showExtensionLogs')}
   ${row('Help', 'README', 'upp.openHelp')}
 

@@ -8,7 +8,7 @@ import {
   setIsRunning, setActiveRunProcess, setActiveRunTerminal, updateStatusBar,
 } from './state';
 import { selectAssembly } from './panels';
-import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
+import { resolveDebugOutputDir, resolveBinaryPath, resolveOutputDir } from './outputDir';
 import { resolveUmkPath } from './utils';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -311,4 +311,34 @@ export async function doAction(action: UmkAction) {
       vscode.window.showErrorMessage(`UPP ${action} failed: ${err.message}`);
     }
   });
+}
+
+// ─── Clean Build Output ─────────────────────────────────────────────────────
+
+export async function cleanBuildOutput() {
+  if (!activeAssembly || !activeMainPackage) {
+    vscode.window.showWarningMessage('UPP: No active assembly/package selected.');
+    return;
+  }
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const outputDir = resolveOutputDir(activeInstallation, activeAssembly, activeMainPackage);
+
+  if (!fs.existsSync(outputDir)) {
+    vscode.window.showInformationMessage(`UPP: Output directory already clean: ${outputDir}`);
+    return;
+  }
+
+  const confirm = await vscode.window.showWarningMessage(
+    `UPP: Delete build output in "${outputDir}"?`,
+    { modal: true },
+    'Delete',
+  );
+  if (confirm !== 'Delete') return;
+
+  try {
+    fs.rmSync(outputDir, { recursive: true, force: true });
+    vscode.window.showInformationMessage(`UPP: Build output cleaned: ${outputDir}`);
+  } catch (err: any) {
+    vscode.window.showErrorMessage(`UPP: Failed to clean output: ${err.message}`);
+  }
 }

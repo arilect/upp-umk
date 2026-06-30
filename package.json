@@ -390,6 +390,11 @@
           "default": "",
           "markdownDescription": "The full UMK release build command. Auto-generated from buildCommand with release flag added. Used for release builds.\n```\numk myapp MyApp/Main GCC -brsH8 +GUI,X11\n```"
         },
+        "upp.stopOnErrors": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, halt the build immediately on the first error."
+        },
         "upp.showWorkspaceSwitchNotification": {
           "type": "boolean",
           "default": false,

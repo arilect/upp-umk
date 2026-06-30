@@ -23,7 +23,7 @@ import { UppSidebarProvider } from './sidebarProvider';
 import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode, setOutput, setLinkMode } from './buildCommand';
 import { syncWorkspaces } from './workspace';
-import { doAction, ensureActiveAssembly } from './actions';
+import { doAction, ensureActiveAssembly, cleanBuildOutput } from './actions';
 import { resolveUmkPath } from './utils';
 import {
   selectAssembly, selectPackage, selectConfig, setConfig,
@@ -34,6 +34,7 @@ import { showRunOptionsPanel } from './runOptionsPanel';
 import { showInstallationsPanel } from './installationsPanel';
 import { showConfigFlagsPanel } from './configFlagsPanel';
 import { showCppStandardPanel } from './cppStandardPanel';
+import { showBuildEditPanel } from './buildEditPanel';
 import { findBuildMethods } from './assemblyParser';
 import { scanInstallations, UppInstallation } from './installations';
 
@@ -232,6 +233,18 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
     vscode.commands.registerCommand('upp.rebuild',            () => doAction('rebuild')),
+    vscode.commands.registerCommand('upp.cleanBuild',        () => cleanBuildOutput()),
+    vscode.commands.registerCommand('upp.editBuildOptions',  () => showBuildEditPanel()),
+    vscode.commands.registerCommand('upp.toggleStopOnErrors', async () => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      const current = cfg.get<boolean>('stopOnErrors', false);
+      await cfg.update('stopOnErrors', !current, vscode.ConfigurationTarget.Workspace);
+      updateStatusBar();
+    }),
+    vscode.commands.registerCommand('upp.syncAndRefresh', () => {
+      syncBuildCommand().catch(err => console.warn('UPP: syncBuildCommand failed:', err));
+      updateStatusBar();
+    }),
     vscode.commands.registerCommand('upp.stopRun', () => {
       killProcess(activeRunProcess);
       setActiveRunProcess(undefined);
