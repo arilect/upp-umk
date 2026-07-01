@@ -179,13 +179,13 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const runCmd   = this.running ? 'upp.stopRun' : 'upp.run';
     const debugCmd = this.debugging ? 'upp.stopDebug' : 'upp.debug';
 
-    const row = (label: string, value: string, cmd: string, cssClass = 'row') =>
+    const row = (label: string, value: string, cmd: string, cssClass = 'property-row') =>
       `<div class="${this._esc(cssClass)}" onclick="${this._cmd(cmd)}">
         <span class="label">${this._esc(label)}</span>
         <span class="value">${this._esc(value)}</span>
       </div>`;
 
-    const button = (label: string, cmd: string, cssClass = 'btn-primary') =>
+    const button = (label: string, cmd: string, cssClass = 'btn--primary') =>
       `<button class="btn ${this._esc(cssClass)}" onclick="${this._cmd(cmd)}">${this._esc(label)}</button>`;
 
     const separator = '<div class="separator"></div>';
@@ -251,9 +251,9 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('DOMContentLoaded', () => {
   const state = vscode.getState() || {};
-  document.querySelectorAll('.group').forEach(g => {
-    const header = g.querySelector('.group-header[data-group-id]');
-    const children = g.querySelector('.group-children');
+  document.querySelectorAll('.section').forEach(g => {
+    const header = g.querySelector('.section-header[data-group-id]');
+    const children = g.querySelector('.section-children');
     const icon = header?.querySelector('.chevron');
     if (!header || !children || !icon) return;
     if (state[header.dataset.groupId] === 'collapsed') {
@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
     padding: 8px 0 4px;
     letter-spacing: 0.5px;
   }
-  .row {
+  .property-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -302,13 +302,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cursor: pointer;
     gap: 8px;
   }
-  .row:hover { background: var(--row-hover); }
-  .row .label {
+  .property-row:hover { background: var(--row-hover); }
+  .property-row .label {
     color: var(--label-fg);
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .row .value {
+  .property-row .value {
     color: var(--value-fg);
     text-align: right;
     overflow: hidden;
@@ -335,47 +335,22 @@ document.addEventListener('DOMContentLoaded', () => {
     font-weight: 500;
     transition: background 0.15s;
   }
-  .btn-primary {
-    background: var(--btn-bg);
-    color: var(--btn-fg);
-  }
-  .btn-primary:hover { background: var(--btn-hover); }
-  .btn-secondary {
-    background: var(--btn-secondary-bg);
-    color: var(--btn-secondary-fg);
-  }
-  .btn-secondary:hover { background: var(--btn-secondary-hover); }
-  .btn-run {
-    background: var(--btn-bg);
-    color: var(--btn-fg);
-    font-weight: 600;
-  }
-  .btn-run:hover { background: var(--btn-hover); }
-  .btn-run.running {
-    background: #c53535;
-  }
-  .btn-run.running:hover { background: #d94040; }
-  .btn-debug {
-    background: var(--btn-secondary-bg);
-    color: var(--btn-secondary-fg);
-  }
-  .btn-debug:hover { background: var(--btn-secondary-hover); }
-  .btn-debug.debugging {
-    background: #c53535;
-  }
-  .btn-debug.debugging:hover { background: #d94040; }
-  .btn-new {
-    background: var(--accent);
-    color: #fff;
-    font-weight: 600;
-    border-radius: 6px;
-    padding: 5px 12px;
-  }
-  .btn-new:hover { filter: brightness(1.15); }
-  .group {
-    padding: 2px 0;
-  }
-  .group-header {
+  .btn--primary { background: var(--btn-bg); color: var(--btn-fg); }
+  .btn--primary:hover { background: var(--btn-hover); }
+  .btn--secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-fg); }
+  .btn--secondary:hover { background: var(--btn-secondary-hover); }
+  .btn--run { background: var(--btn-bg); color: var(--btn-fg); font-weight: 600; }
+  .btn--run:hover { background: var(--btn-hover); }
+  .btn--debug { background: var(--btn-secondary-bg); color: var(--btn-secondary-fg); }
+  .btn--debug:hover { background: var(--btn-secondary-hover); }
+  .btn--accent { background: var(--accent); color: #fff; font-weight: 600; border-radius: 6px; padding: 5px 12px; }
+  .btn--accent:hover { filter: brightness(1.15); }
+  .is-running { background: #c53535; }
+  .is-running:hover { background: #d94040; }
+  .is-debugging { background: #c53535; }
+  .is-debugging:hover { background: #d94040; }
+  .section { padding: 2px 0; }
+  .section-header {
     display: flex;
     align-items: center;
     padding: 4px 0;
@@ -384,10 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
     font-weight: 500;
     position: relative;
   }
-  .group-header:hover { background: var(--row-hover); }
-  .group-header .label { color: var(--value-fg); margin-left: 0; }
-  .group-header .value { color: var(--accent); font-size: 14px; font-weight: 600; margin-left: auto; }
-  .group-header .edit-icon {
+  .section-header:hover { background: var(--row-hover); }
+  .section-header .label { color: var(--value-fg); margin-left: 0; }
+  .section-header .value { color: var(--accent); font-size: 14px; font-weight: 600; margin-left: auto; }
+  .section-header .edit-icon {
     font-size: 1.2em;
     flex-shrink: 0;
     cursor: pointer;
@@ -397,8 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
     margin-left: 12px;
     margin-right: 4px;
   }
-  .group-header .edit-icon:hover { opacity: 1; background: var(--row-hover); }
-  .group-header .build-icon {
+  .section-header .edit-icon:hover { opacity: 1; background: var(--row-hover); }
+  .section-header .build-icon {
     font-size: 16px;
     flex-shrink: 0;
     cursor: pointer;
@@ -407,7 +382,18 @@ document.addEventListener('DOMContentLoaded', () => {
     opacity: 0.8;
     margin: 0 3px;
   }
-  .group-header .build-icon:hover { opacity: 1; background: var(--row-hover); }
+  .section-header .build-icon:hover { opacity: 1; background: var(--row-hover); }
+  .section-header .build-go { font-size: 18px; }
+  .section-header .build-rebuild { color: #c53535; }
+  .section-header .chevron {
+    color: var(--label-fg);
+    font-size: 20px;
+    margin-right: 4px;
+    transition: transform 0.15s;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .section-children { padding-left: 8px; }
   .bm-header-btn {
     display: inline-flex;
     align-items: center;
@@ -424,11 +410,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   .bm-header-btn:hover { background: var(--row-hover); }
   .bm-header-btn .value {
-    color: var(--accent);
     font-size: 14px;
     font-weight: 600;
-    background: var(--vscode-button-background, #0e639c);
-    color: var(--vscode-button-foreground, #fff);
+    background: var(--btn-bg);
+    color: var(--btn-fg);
     padding: 2px 8px;
     border-radius: 6px;
     max-width: 160px;
@@ -436,11 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .bm-header-btn .chevron {
-    color: var(--label-fg);
-    font-size: 14px;
-    transition: transform 0.15s;
-  }
+  .bm-header-btn .chevron { color: var(--label-fg); font-size: 14px; transition: transform 0.15s; }
   .bm-dropdown-wrap {
     position: static;
     z-index: 1000;
@@ -449,23 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
     display: flex;
     align-items: flex-end;
   }
-  .bm-dropdown-wrap .dropdown-options {
-    left: auto;
-    right: 0;
-    min-width: unset;
-    top: 100%;
-  }
-  .group-header .build-go { font-size: 18px; }
-  .group-header .build-rebuild { color: #c53535; }
-  .group-header .chevron {
-    color: var(--label-fg);
-    font-size: 20px;
-    margin-right: 4px;
-    transition: transform 0.15s;
-    user-select: none;
-    flex-shrink: 0;
-  }
-  .group-children { padding-left: 8px; }
+  .bm-dropdown-wrap .dropdown-options { left: auto; right: 0; min-width: unset; top: 100%; }
   .hint {
     font-size: 11px;
     color: var(--label-fg, #999);
@@ -477,10 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
     border-radius: 4px;
   }
   .hint:hover { background: var(--row-hover); }
-  .dropdown-container {
-    position: relative;
-    margin: 2px 0;
-  }
+  .dropdown-container { position: relative; margin: 2px 0; }
   .dropdown-btn {
     display: flex;
     align-items: center;
@@ -497,16 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
     gap: 8px;
   }
   .dropdown-btn:hover { background: var(--row-hover); }
-  .dropdown-btn .label-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .dropdown-btn .label-group .label {
-    color: var(--label-fg);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+  .dropdown-btn .label-group { display: inline-flex; align-items: center; gap: 2px; }
+  .dropdown-btn .label-group .label { color: var(--label-fg); white-space: nowrap; flex-shrink: 0; }
   .dropdown-btn .value {
     color: #000;
     text-align: right;
@@ -514,19 +468,12 @@ document.addEventListener('DOMContentLoaded', () => {
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    background: var(--vscode-button-background, #0e639c);
+    background: var(--btn-bg);
     padding: 2px 8px;
     border-radius: 6px;
   }
-  .dropdown-btn .chevron {
-    color: var(--label-fg);
-    font-size: 14px;
-    flex-shrink: 0;
-    transition: transform 0.15s;
-  }
-  .dropdown-container.open .dropdown-btn .chevron {
-    transform: rotate(180deg);
-  }
+  .dropdown-btn .chevron { color: var(--label-fg); font-size: 14px; flex-shrink: 0; transition: transform 0.15s; }
+  .dropdown-container.open .dropdown-btn .chevron { transform: rotate(180deg); }
   .dropdown-options {
     display: none;
     position: absolute;
@@ -542,9 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
     overflow: hidden;
     margin-top: 2px;
   }
-  .dropdown-container.open .dropdown-options {
-    display: block;
-  }
+  .dropdown-container.open .dropdown-options { display: block; }
   .dropdown-option {
     display: flex;
     align-items: center;
@@ -554,18 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
     color: var(--value-fg);
     font-size: inherit;
   }
-  .dropdown-option:hover {
-    background: var(--row-hover);
-  }
-  .dropdown-option.selected {
-    color: var(--accent);
-    font-weight: 500;
-  }
-  .dropdown-option .check {
-    color: var(--accent);
-    font-size: 13px;
-    flex-shrink: 0;
-  }
+  .dropdown-option:hover { background: var(--row-hover); }
+  .dropdown-option.selected { color: var(--accent); font-weight: 500; }
+  .dropdown-option .check { color: var(--accent); font-size: 13px; flex-shrink: 0; }
   .dropdown-btn .edit-icon {
     color: var(--label-fg);
     font-size: inherit;
@@ -577,42 +513,68 @@ document.addEventListener('DOMContentLoaded', () => {
     border-radius: 2px;
     align-self: center;
   }
-  .dropdown-btn .edit-icon:hover {
-    opacity: 1;
-    background: var(--row-hover);
-  }
-  .output-btn {
+  .dropdown-btn .edit-icon:hover { opacity: 1; background: var(--row-hover); }
+  .output-toggle {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
+    width: 100%;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--value-fg);
+    font-family: inherit;
+    font-size: inherit;
+    gap: 8px;
     position: relative;
   }
-  .output-btn .value {
+  .output-toggle:hover { background: var(--row-hover); }
+  .output-toggle .label { color: var(--label-fg); }
+  .output-toggle .value {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+    color: #000;
+    background: var(--btn-bg);
+    padding: 2px 8px;
+    border-radius: 6px;
   }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    font-size: var(--vscode-font-size, 13px);
+    color: var(--value-fg);
+    cursor: pointer;
+  }
+  .checkbox-row:hover { background: var(--row-hover); }
+  .checkbox-input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
 </style>
 </head>
 <body>
 
-  <div class="group">
-    <div class="group-header" data-group-id="package" onclick="toggleGroup(this)">
+  <div class="section">
+    <div class="section-header" data-group-id="package" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
       <span class="label">Package</span>
       <span class="value" onclick="selectPackage(event)">${this._esc(packageName)}</span>
     </div>
-    <div class="group-children">
+    <div class="section-children">
       ${row('Description', this.packageDescription || '(click to set)', 'upp.editDescription')}
       ${row('Select from Assembly', assemblyName, 'upp.selectAssembly')}
-      <button class="btn btn-new" onclick="${this._cmd('upp.newPackage')}">New Package</button>
-      <button class="btn btn-secondary" onclick="${this._cmd('upp.editInstallations')}">Source Trees</button>
+      <button class="btn btn--accent" onclick="${this._cmd('upp.newPackage')}">New Package</button>
+      <button class="btn btn--secondary" onclick="${this._cmd('upp.editInstallations')}">Source Trees</button>
       ${isWindows ? row('Source Tree', installationLabel, 'upp.selectInstallation') : ''}
     </div>
   </div>
 
   ${separator}
 
-  <div class="group">
-    <div class="group-header" data-group-id="buildMethod" onclick="toggleGroup(this)">
+  <div class="section">
+    <div class="section-header" data-group-id="buildMethod" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
       <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildMethod', args: ['${this._esc(bm?.filePath || '')}'] })" title="Edit build method">\u270E</span>
       <span class="label">Build Method</span>
@@ -632,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     </div>
-    <div class="group-children">
+    <div class="section-children">
       <div class="dropdown-container">
         <button class="dropdown-btn" onclick="toggleDropdown('linkmode-dropdown')">
           <span class="label">Link Mode</span>
@@ -710,12 +672,12 @@ document.addEventListener('DOMContentLoaded', () => {
       })()
     : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
   }
-  <button class="dropdown-btn output-btn" onclick="selectOutput('${outputLabel === 'Debug' ? 'Release' : 'Debug'}')">
+  <button class="output-toggle" onclick="selectOutput('${outputLabel === 'Debug' ? 'Release' : 'Debug'}')">
     <span class="label">Output Mode</span>
     <span class="value">${this._esc(outputLabel)}</span>
   </button>
-  <div class="group">
-    <div class="group-header" data-group-id="buildMode" onclick="toggleGroup(this)">
+  <div class="section">
+    <div class="section-header" data-group-id="buildMode" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
       <span class="label">Build</span>
       <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildOptions' })" title="Edit build options">\u270E</span>
@@ -723,21 +685,21 @@ document.addEventListener('DOMContentLoaded', () => {
       <span class="build-icon build-rebuild" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.rebuild' })" title="Rebuild All">\u25B6</span>
       <span class="value">${this._esc((effectiveFlags ? '-' + effectiveFlags : '') + (configCurrent ? ' +' + configCurrent : '') || none)}</span>
     </div>
-    <div class="group-children">
-      <div class="row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'upp.cleanBuild' })" style="cursor: pointer;">
+    <div class="section-children">
+      <div class="property-row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'upp.cleanBuild' })">
         <span class="label">Clean the build</span>
       </div>
-      <div class="stop-on-errors" onclick="toggleStopOnErrors()" style="cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: var(--vscode-font-size, 13px); color: var(--vscode-foreground, #ccc);">
-        <input type="checkbox" id="stop-on-errors-cb" ${stopOnErrors ? 'checked' : ''} onclick="event.stopPropagation(); toggleStopOnErrors()" style="width: 16px; height: 16px; margin: 0; cursor: pointer;" />
-        <span style="cursor: pointer;">Stop on errors</span>
+      <div class="checkbox-row" onclick="toggleStopOnErrors()">
+        <input type="checkbox" id="stop-on-errors-cb" ${stopOnErrors ? 'checked' : ''} onclick="event.stopPropagation(); toggleStopOnErrors()" class="checkbox-input" />
+        <span>Stop on errors</span>
       </div>
     </div>
   </div>
 
   ${separator}
 
-  ${button(runLabel, runCmd, this.running ? 'btn-run running' : 'btn-run')}
-  ${button(debugLabel, debugCmd, this.debugging ? 'btn-debug debugging' : 'btn-debug')}
+  ${button(runLabel, runCmd, this.running ? 'btn--run is-running' : 'btn--run')}
+  ${button(debugLabel, debugCmd, this.debugging ? 'btn--debug is-debugging' : 'btn--debug')}
 
   ${row('Run Options', 'settings', 'upp.editRunOptions')}
 
@@ -752,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'upp.openKeybindings')}
 
-  <div class="row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'workbench.action.openSettings', args: ['@ext:arilect.upp-umk'] })">
+  <div class="property-row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'workbench.action.openSettings', args: ['@ext:arilect.upp-umk'] })">
     <span class="label">Settings</span>
   </div>
   ${row('WebView DevTools', '', 'upp.showExtensionLogs')}
