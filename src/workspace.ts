@@ -160,8 +160,7 @@ async function switchWorkspaceInner(
     // written there by ensureWorkspaceFile, nothing more to do.
   } else if (currentWsFile?.scheme === 'file') {
     // A different workspace file is open — write new package settings into
-    // the current workspace file so that after the reload (triggered by
-    // updateWorkspaceFolders below), restoreState picks up the new package.
+    // the current workspace file so they persist across sessions.
     try {
       const curWsJson = JSON.parse(fs.readFileSync(currentWsFile.fsPath, 'utf8'));
       curWsJson.settings = curWsJson.settings ?? {};
