@@ -5,9 +5,6 @@ import * as path from 'path';
 import {
   Assembly,
   resolveWorkspaceFolders,
-  findAssemblies,
-  buildNestToAssemblyMap,
-  resolveAssemblyForPackage,
 } from './assemblyParser';
 import { updateWorkspaceFile, persistSetting, resolveUmkPath } from './utils';
 import { activeInstallation } from './state';
@@ -23,7 +20,7 @@ export interface ParsedCompileCommand {
 }
 
 /**
- * Parse the editable `upp.generateClangJson` string.
+ * Parse the editable `upp.generateCompileCommands` string.
  *
  * Expected format:
  *   umk <assembly> <package> <method> -j [+configurationFlag]
@@ -64,7 +61,7 @@ export function parseCompileCommandsCommand(cmd: string): ParsedCompileCommand |
 
 /**
  * Construct the compile_commands.json generation command from current settings
- * and write it to `upp.generateClangJson` (workspace or global).
+ * and write it to `upp.generateCompileCommands` (workspace or global).
  *
  * Mirrors the existing `syncBuildCommand()` pattern.
  */
@@ -82,9 +79,9 @@ export async function syncCompileCommandsCommand(
   const cmd = parts.filter(Boolean).join(' ');
 
   // Skip if already up to date
-  if (cfg.get<string>('generateClangJson', '') === cmd) return;
+  if (cfg.get<string>('generateCompileCommands', '') === cmd) return;
 
-  await persistSetting('upp.generateClangJson', cmd, cfg);
+  await persistSetting('upp.generateCompileCommands', cmd, cfg);
 }
 
 // ─── Generation ───────────────────────────────────────────────────────────────
@@ -117,11 +114,6 @@ export async function generateCompileCommands(
   const uppFile = path.join(pkgDir, `${leaf}.upp`);
   const packageDirs = resolveWorkspaceFolders(uppFile, assembly.nests);
 
-  // Build nest→assembly map from ALL .var files, not just the active one
-  // This is crucial because packages like "Core" come from "uppsrc", not "UppHub"
-  const allAssemblies = findAssemblies();
-  const nestToAssembly = buildNestToAssemblyMap(allAssemblies);
-
   outputChannel.appendLine('');
   outputChannel.appendLine(`► Generating compile_commands.json (${packageDirs.length} packages)`);
   outputChannel.appendLine('─'.repeat(72));
@@ -135,7 +127,7 @@ export async function generateCompileCommands(
     const pkgName = derivePackageName(dir, assembly.nests);
 
     // Find the correct assembly for THIS package based on which nest it belongs to
-    const pkgAssembly = resolveAssemblyForPackage(dir, nestToAssembly, assembly.name);
+    const pkgAssembly = assembly.name;
 
     const args = [pkgAssembly, pkgName, buildMethod, '-j'];
     if (configurationFlag) args.push(`+${configurationFlag}`);
@@ -148,6 +140,12 @@ export async function generateCompileCommands(
       // so we must cd to the package directory first
       await runUmkOnce(umkPath, args, outputChannel, { cwd: dir });
       processed.push(dir);
+      const ccPath = path.join(dir, 'compile_commands.json');
+      if (fs.existsSync(ccPath)) {
+        outputChannel.appendLine(`  ✓ ${ccPath} (${fs.statSync(ccPath).size} bytes)`);
+      } else {
+        outputChannel.appendLine(`  ✗ ${ccPath} NOT created`);
+      }
     } catch {
       outputChannel.appendLine(`  ✗ Failed for ${pkgName}`);
     }
@@ -308,7 +306,7 @@ export async function doCompileCommandsGeneration(
   await vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
     title: 'UPP: Generating compile_commands.json',
-    cancellable: false,
+    cancellable: true,
   }, async (progress) => {
     progress.report({ message: 'Running umk...' });
     try {
@@ -325,12 +323,21 @@ export async function doCompileCommandsGeneration(
       const { updateIntelliSense } = await import('./intelliSense');
       const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
       if (root) {
-        await updateIntelliSense(assembly, root, mainPackage, buildFlags);
+        await updateIntelliSense(assembly, root, mainPackage, buildFlags, outputChannel);
       }
       progress.report({ increment: 100, message: 'Done' });
 
       if (cfg.get('restartClangdAfterGenerate', true)) {
-        vscode.commands.executeCommand('clangd.restart');
+        const hasClangd = vscode.extensions.getExtension('llvm-vs-code-extensions.vscode-clangd');
+        if (hasClangd) {
+          const choice = await vscode.window.showInformationMessage(
+            'UPP: compile_commands.json generated. Reload window for clangd?',
+            'Reload'
+          );
+          if (choice === 'Reload') {
+            vscode.commands.executeCommand('workbench.action.reloadWindow');
+          }
+        }
       }
     } catch (err: any) {
       vscode.window.showErrorMessage(`UPP compile_commands.json generation failed: ${err.message}`);
