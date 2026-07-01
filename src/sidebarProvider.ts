@@ -516,33 +516,6 @@ document.addEventListener('DOMContentLoaded', () => {
     align-self: center;
   }
   .dropdown-btn .edit-icon:hover { opacity: 1; background: var(--row-hover); }
-  .output-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 4px 6px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    background: transparent;
-    color: var(--value-fg);
-    font-family: inherit;
-    font-size: inherit;
-    gap: 8px;
-    position: relative;
-  }
-  .output-toggle:hover { background: var(--row-hover); }
-  .output-toggle .label { color: var(--label-fg); }
-  .output-toggle .value {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #000;
-    background: var(--btn-bg);
-    padding: 2px 8px;
-    border-radius: 6px;
-  }
   .checkbox-row {
     display: flex;
     align-items: center;
@@ -641,40 +614,40 @@ document.addEventListener('DOMContentLoaded', () => {
           }).join('')}
         </div>
       </div>
+      ${configOptions.length > 0
+        ? (() => {
+            const currentNormalized = configCurrent.replace(/\s+/g, ',').replace(/,+/g, ',');
+            const currentAlias = configAliases[currentNormalized] || '';
+            const displayValue = currentAlias ? currentAlias : (configCurrent ? '+' + configCurrent : none);
+            return `<div class="dropdown-container">
+            <button class="dropdown-btn" onclick="toggleDropdown('config-dropdown')">
+              <span class="label-group">
+                <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editConfigFlags' })" title="Edit config flags">\u270E</span>
+                <span class="label">Config Flags</span>
+              </span>
+              <span class="value">${this._esc(displayValue)}</span>
+              <span class="chevron">\u25BE</span>
+            </button>
+            <div id="config-dropdown" class="dropdown-options">
+              ${configOptions.map(c => {
+                const val = c.replace(/\s+/g, ',').replace(/,+/g, ',');
+                const isSelected = val === configCurrent;
+                const alias = configAliases[val] || '';
+                const label = alias ? alias + ' (' + c + ')' : c;
+                return `<div class="dropdown-option ${isSelected ? 'selected' : ''}" onclick="selectConfig('${this._esc(val)}')">
+                  <span>${this._esc(label)}</span>
+                  ${isSelected ? '<span class="check">\u2713</span>' : ''}
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+          })()
+        : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
+      }
     </div>
   </div>
 
-  ${configOptions.length > 0
-    ? (() => {
-        const currentNormalized = configCurrent.replace(/\s+/g, ',').replace(/,+/g, ',');
-        const currentAlias = configAliases[currentNormalized] || '';
-        const displayValue = currentAlias ? currentAlias : (configCurrent ? '+' + configCurrent : none);
-        return `<div class="dropdown-container">
-        <button class="dropdown-btn" onclick="toggleDropdown('config-dropdown')">
-          <span class="label-group">
-            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editConfigFlags' })" title="Edit config flags">\u270E</span>
-            <span class="label">Config Flags</span>
-          </span>
-          <span class="value">${this._esc(displayValue)}</span>
-          <span class="chevron">\u25BE</span>
-        </button>
-        <div id="config-dropdown" class="dropdown-options">
-          ${configOptions.map(c => {
-            const val = c.replace(/\s+/g, ',').replace(/,+/g, ',');
-            const isSelected = val === configCurrent;
-            const alias = configAliases[val] || '';
-            const label = alias ? alias + ' (' + c + ')' : c;
-            return `<div class="dropdown-option ${isSelected ? 'selected' : ''}" onclick="selectConfig('${this._esc(val)}')">
-              <span>${this._esc(label)}</span>
-              ${isSelected ? '<span class="check">\u2713</span>' : ''}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-      })()
-    : row('Config Flags', extra !== none ? '+' + extra : none, 'upp.selectConfig')
-  }
-  <button class="output-toggle" onclick="selectOutput('${outputLabel === 'Debug' ? 'Release' : 'Debug'}')">
+  <button class="dropdown-btn" onclick="selectOutput('${outputLabel === 'Debug' ? 'Release' : 'Debug'}')">
     <span class="label">Output Mode</span>
     <span class="value">${this._esc(outputLabel)}</span>
   </button>
