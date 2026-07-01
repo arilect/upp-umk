@@ -36,7 +36,7 @@ function esc(s: string): string {
 
 function buildHtml(cfg: vscode.WorkspaceConfiguration): string {
   const buildCmd = cfg.get<string>('buildCommand', '');
-  const stopOnErrors = cfg.get<boolean>('stopOnErrors', false);
+  const stopOnErrors = cfg.get<boolean>('stopOnErrors');
 
   return `<!DOCTYPE html>
 <html lang="en">

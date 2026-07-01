@@ -327,7 +327,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.editBuildOptions',  () => showBuildEditPanel()),
     vscode.commands.registerCommand('upp.toggleStopOnErrors', async () => {
       const cfg = vscode.workspace.getConfiguration('upp');
-      const current = cfg.get<boolean>('stopOnErrors', false);
+      const current = cfg.get<boolean>('stopOnErrors');
       await cfg.update('stopOnErrors', !current, vscode.ConfigurationTarget.Workspace);
       updateStatusBar();
     }),

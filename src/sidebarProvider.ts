@@ -135,7 +135,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
     const installationLabel = this.installation?.label ?? 'click to set';
     const isWindows = process.platform === 'win32';
-    const stopOnErrors = cfg.get<boolean>('stopOnErrors', false);
+    const stopOnErrors = cfg.get<boolean>('stopOnErrors');
 
     // Config flags from .upp file
     const configCurrent = cfg.get<string>('configurationFlag', '');
