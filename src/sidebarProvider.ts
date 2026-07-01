@@ -216,6 +216,10 @@ function toggleDropdown(id) {
   closeAllDropdowns();
   if (!wasOpen) container.classList.add('open');
 }
+function selectPackage(event) {
+  event.stopPropagation();
+  vscode.postMessage({ command: 'executeCommand', commandId: 'upp.selectAssembly' });
+}
 function closeAllDropdowns() {
   document.querySelectorAll('.dropdown-container.open').forEach(d => d.classList.remove('open'));
 }
@@ -546,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="group-header" data-group-id="package" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
       <span class="label">Package</span>
-      <span class="value">${this._esc(packageName)}</span>
+      <span class="value" onclick="selectPackage(event)">${this._esc(packageName)}</span>
     </div>
     <div class="group-children">
       <button class="btn btn-secondary" onclick="${this._cmd('upp.editInstallations')}">Source Trees</button>
