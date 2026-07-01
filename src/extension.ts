@@ -22,7 +22,7 @@ import {
 import { UppSidebarProvider } from './sidebarProvider';
 import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode, setOutput, setLinkMode } from './buildCommand';
-import { syncWorkspaces } from './workspace';
+import { syncWorkspaces, getWorkspaceFilePath, ensureWorkspaceFile } from './workspace';
 import { doAction, ensureActiveAssembly, cleanBuildOutput } from './actions';
 import { resolveUmkPath } from './utils';
 import {
@@ -60,26 +60,91 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Check if workspace file name matches active package
   const wsFile = vscode.workspace.workspaceFile;
-  if (wsFile?.scheme === 'file' && activeMainPackage) {
+  if (wsFile?.scheme === 'file' && activeMainPackage && activeAssembly) {
     const wsBaseName = path.basename(wsFile.fsPath, '.code-workspace');
     const pkgBaseName = path.basename(activeMainPackage);
     if (wsBaseName !== pkgBaseName) {
+      const correctWsPath = getWorkspaceFilePath(activeAssembly, activeMainPackage);
+      const correctWsExists = fs.existsSync(correctWsPath);
+
       const panel = vscode.window.createWebviewPanel(
         'uppMismatch', 'UPP: Workspace/Package Mismatch',
         vscode.ViewColumn.One,
-        { enableScripts: false }
+        { enableScripts: true }
       );
       panel.webview.html = `<!DOCTYPE html><html><head><style>
         body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:20px;}
         h2{color:#f44;}
         .ws{background:var(--vscode-input-background);padding:8px 12px;border-radius:4px;margin:8px 0;}
+        button{padding:6px 16px;border:none;border-radius:2px;cursor:pointer;font-size:0.9em;margin:4px 4px 4px 0;}
+        .btn-primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);}
+        .btn-danger{background:var(--vscode-errorForeground);color:#fff;}
       </style></head><body>
         <h2>Workspace / Package Mismatch</h2>
         <p>The workspace file and active package do not match:</p>
         <div class="ws"><b>Workspace:</b> ${escHtml(wsBaseName)}</div>
         <div class="ws"><b>Package:</b> ${escHtml(pkgBaseName)}</div>
         <p>This means that AI (artificial idiot) was not able to fix the bug in the switch workspace chain. Delete workspace file, start again and pray.</p>
+        <br/>
+        <button class="btn-primary" id="btnRecreate">Recreate workspace from ${escHtml(pkgBaseName)}.upp</button>
+        <div id="status" style="margin-top:12px;opacity:0.8;"></div>
+        <script>
+          const vscode = acquireVsCodeApi();
+          document.getElementById('btnRecreate').addEventListener('click', () => {
+            document.getElementById('status').textContent = 'Working...';
+            vscode.postMessage({ type: 'recreate' });
+          });
+          window.addEventListener('message', (e) => {
+            if (e.data.type === 'status') {
+              document.getElementById('status').textContent = e.data.text;
+            }
+          });
+        </script>
       </body></html>`;
+
+      panel.webview.onDidReceiveMessage(async (msg) => {
+        if (msg.type === 'recreate') {
+          try {
+            const pkgDir = activeAssembly!.nests
+              .map(n => path.join(n, activeMainPackage!.replace(/\//g, path.sep)))
+              .find(d => fs.existsSync(d));
+
+            if (!pkgDir) {
+              panel.webview.postMessage({ type: 'status', text: 'Package directory not found.' });
+              return;
+            }
+
+            const leaf = path.basename(pkgDir);
+            const uppFile = path.join(pkgDir, `${leaf}.upp`);
+
+            if (correctWsExists) {
+              const choice = await vscode.window.showWarningMessage(
+                `Workspace "${pkgBaseName}.code-workspace" already exists. Switch to it?`,
+                'Switch', 'Delete & Recreate', 'Cancel'
+              );
+              if (choice === 'Switch') {
+                await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(correctWsPath), false);
+                return;
+              }
+              if (choice === 'Delete & Recreate') {
+                try { fs.unlinkSync(correctWsPath); } catch { /* ignore */ }
+              } else {
+                return;
+              }
+            }
+
+            const wsCreated = ensureWorkspaceFile(activeAssembly!, activeMainPackage!, pkgDir, uppFile);
+            if (wsCreated) {
+              panel.webview.postMessage({ type: 'status', text: `Created: ${path.basename(wsCreated)}` });
+              await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(wsCreated), false);
+            } else {
+              panel.webview.postMessage({ type: 'status', text: 'Failed to create workspace file.' });
+            }
+          } catch (err: any) {
+            panel.webview.postMessage({ type: 'status', text: `Error: ${err.message}` });
+          }
+        }
+      });
     }
   }
 
