@@ -38,9 +38,8 @@
     "onCommand:upp.selectConfig",
     "onCommand:upp.selectBuildParams",
     "onCommand:upp.generateCompileCommands",
-    "onCommand:upp.generateClangJson",
     "onCommand:upp.syncWorkspaces",
-    "onCommand:upp.openHelp",
+    "onCommand:upp.openReadme",
     "onCommand:upp.updateIntelliSense",
     "onCommand:upp.stopRun",
     "onCommand:upp.selectBuildMethod",
@@ -91,8 +90,8 @@
         "icon": "$(play)"
       },
       {
-        "command": "upp.openHelp",
-        "title": "Help",
+        "command": "upp.openReadme",
+        "title": "README",
         "category": "UPP",
         "icon": "$(question)"
       },
@@ -189,8 +188,8 @@
         "category": "UPP"
       },
       {
-        "command": "upp.generateClangJson",
-        "title": "Generate clang json",
+        "command": "upp.generateCompileCommands",
+        "title": "Generate compile_commands.json",
         "category": "UPP",
         "icon": "$(json)"
       },
@@ -417,7 +416,7 @@
           "default": "off",
           "description": "compile_commands.json generation mode. 'auto' watches source files and regenerates on changes, 'manual' provides a command to generate on demand, 'off' disables. Workspace setting overrides user setting."
         },
-        "upp.generateClangJson": {
+        "upp.generateCompileCommands": {
           "type": "string",
           "default": "",
           "markdownDescription": "The full UMK command for compile_commands.json generation. Auto-generated when you select an assembly/package — edit freely to override. Example:\n```\numk myapp MyApp/Main CLANG -j\n```"
