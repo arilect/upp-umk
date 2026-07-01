@@ -658,12 +658,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('upp')) {
-        if (e.affectsConfiguration('upp.activeAssembly') || e.affectsConfiguration('upp.activeMainPackage')) {
-          console.log(`[UPP] onDidChangeConfiguration: activeAssembly or activeMainPackage changed — calling restoreState`);
-          restoreState();
-        } else {
-          console.log(`[UPP] onDidChangeConfiguration: upp config changed (not assembly/package) — skipping restoreState`);
-        }
         updateStatusBar();
         if (
           e.affectsConfiguration('upp.buildMethod') ||
