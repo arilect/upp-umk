@@ -56,7 +56,6 @@ export function setDebugTerminal(t: vscode.Terminal | undefined) { debugTerminal
 // ─── Status Bar ──────────────────────────────────────────────────────────────
 
 export function updateStatusBar() {
-  console.log(`[UPP] updateStatusBar: ass=${activeAssembly?.name ?? '(none)'} pkg=${activeMainPackage ?? '(none)'}`);
   if (activeAssembly && activeMainPackage) {
     const anim = isRunning ? '~spin ' : '';
     statusBarItem.text = `$(${anim}tools) ${activeAssembly.name} / ${path.basename(activeMainPackage)}`;
@@ -121,8 +120,6 @@ export function restoreState() {
   }
 
   if (savedAssPath && savedPkg) {
-    console.log(`[UPP] restoreState: restoring from ws=${wsFile?.fsPath ?? '(none)'} ass=${savedAssPath} pkg=${savedPkg}`);
-    console.log(`[UPP] restoreState: current state ass=${activeAssembly?.name ?? '(none)'} pkg=${activeMainPackage ?? '(none)'}`);
     try {
       activeAssembly    = parseAssembly(savedAssPath);
       activeMainPackage = savedPkg;

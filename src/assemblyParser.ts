@@ -421,7 +421,6 @@ export function resolveWorkspaceFolders(
     }
 
     // Add this package after its own dependencies
-    console.log(`[UPP] add ${pkgDir}`);
     ordered.push(pkgDir);
   }
 

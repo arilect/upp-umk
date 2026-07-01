@@ -83,7 +83,6 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     debugOutputDirPath?: string,
     debugCmdText?: string,
   ) {
-    console.log(`[UPP] sidebar.refresh: assembly=${assembly?.name ?? '(none)'} package=${mainPackage ?? '(none)'}`);
     this.installation       = installation;
     this.assembly           = assembly;
     this.mainPackage        = mainPackage;
@@ -527,6 +526,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   .checkbox-row:hover { background: var(--row-hover); }
   .checkbox-input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
+  .clang-label { display: inline-flex; align-items: center; gap: 4px; }
+  .clang-actions { display: inline-flex; gap: 4px; }
+  .btn--sm { width: auto; padding: 2px 10px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -685,7 +687,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${separator}
 
-  ${row('Generate clang json', '', 'upp.generateClangJson')}
+  <div class="property-row">
+    <span class="label clang-label">
+      <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editCompileCommands' })" title="Edit compile_commands.json">\u270E</span>
+      <span class="label">compile_commands.json</span>
+    </span>
+    <span class="value clang-actions">
+      <button class="btn btn--primary btn--sm" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.generateCompileCommands' })">Generate</button>
+    </span>
+  </div>
 
   ${row('Keybindings', 'ctrl+shift+b build \u00B7 ctrl+shift+q run \u00B7 ctrl+shift+d debug \u00B7 ctrl+shift+x stop \u00B7 alt+l logs', 'upp.openKeybindings')}
 
@@ -693,7 +703,9 @@ document.addEventListener('DOMContentLoaded', () => {
     <span class="label">Settings</span>
   </div>
   ${row('WebView DevTools', '', 'upp.showExtensionLogs')}
-  ${row('Help', 'README', 'upp.openHelp')}
+  ${row('README', '', 'upp.openReadme')}
+  ${row('HELP', '', 'upp.openHelp')}
+  ${row('TODO', '', 'upp.openTODO')}
 
 </body>
 </html>`;

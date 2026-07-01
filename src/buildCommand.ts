@@ -61,9 +61,7 @@ export function buildCommandLine(
 
 export async function syncBuildCommand() {
   const cfg = vscode.workspace.getConfiguration('upp');
-  console.log(`[UPP] syncBuildCommand called`);
   if (!activeAssembly || !activeMainPackage) {
-    console.log(`[UPP] syncBuildCommand: skipped (no activeAssembly=${!!activeAssembly} activeMainPackage=${!!activeMainPackage})`);
     return;
   }
   const umkPath = resolveUmkPath(cfg, activeInstallation);
@@ -87,11 +85,9 @@ export async function syncBuildCommand() {
   if (cfg.get<string>('buildCommand', '') === cmd &&
       cfg.get<string>('debugCommand', '') === debugCmd &&
       cfg.get<string>('releaseCommand', '') === releaseCmd) {
-    console.log(`[UPP] syncBuildCommand: skipped (settings already match)`);
     return;
   }
 
-  console.log(`[UPP] syncBuildCommand → buildCommand = "${cmd}"`);
   await persistSetting('upp.buildCommand', cmd, cfg);
   await persistSetting('upp.debugCommand', debugCmd, cfg);
   await persistSetting('upp.releaseCommand', releaseCmd, cfg);
@@ -136,7 +132,6 @@ export async function selectBuildMethod() {
   );
 
   await persistSetting('upp.buildMethod', chosen, cfg);
-  console.log(`[UPP] selectBuildMethod → buildCommand = "${newCmd}"`);
   await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
@@ -210,7 +205,6 @@ export async function selectOutput() {
   );
 
   await persistSetting('upp.buildFlags', rawFlags, cfg);
-  console.log(`[UPP] selectOutput → buildCommand = "${newCmd}"`);
   await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }
@@ -234,7 +228,6 @@ export async function setOutput(value: 'Debug' | 'Release') {
   );
 
   await persistSetting('upp.buildFlags', rawFlags, cfg);
-  console.log(`[UPP] setOutput → buildCommand = "${newCmd}"`);
   await persistSetting('upp.buildCommand', newCmd, cfg);
   updateStatusBar();
 }

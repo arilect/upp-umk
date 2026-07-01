@@ -150,7 +150,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      console.log(`[UPP] onDidChangeWorkspaceFolders: updateStatusBar only (no restoreState)`);
       updateStatusBar();
     })
   );
@@ -219,7 +218,6 @@ export async function activate(context: vscode.ExtensionContext) {
   if (process.platform !== 'win32') {
     const umkPathVal = cfg.get<string>('umkPath', '');
     if (umkPathVal && umkPathVal.includes('/')) {
-      console.log(`[UPP] activation: fixing stale umkPath "${umkPathVal}" → "umk"`);
       await cfg.update('umkPath', 'umk', vscode.ConfigurationTarget.Workspace);
     }
     const buildCmd = cfg.get<string>('buildCommand', '');
@@ -227,7 +225,6 @@ export async function activate(context: vscode.ExtensionContext) {
       const umkPrefix = buildCmd.split(/\s/)[0];
       if (umkPrefix && umkPrefix.includes('/')) {
         const fixed = 'umk' + buildCmd.slice(umkPrefix.length);
-        console.log(`[UPP] activation: fixing stale buildCommand "${buildCmd}" → "${fixed}"`);
         await cfg.update('buildCommand', fixed, vscode.ConfigurationTarget.Workspace);
         await cfg.update('debugCommand', (cfg.get<string>('debugCommand', '') || '').replace(umkPrefix, 'umk'), vscode.ConfigurationTarget.Workspace);
         await cfg.update('releaseCommand', (cfg.get<string>('releaseCommand', '') || '').replace(umkPrefix, 'umk'), vscode.ConfigurationTarget.Workspace);
@@ -256,7 +253,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // (removes stale compileCommands references if the file was just deleted)
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
   if (activeAssembly && wsRoot) {
-    updateIntelliSense(activeAssembly, wsRoot, activeMainPackage, cfg.get('buildFlags', ''))
+    updateIntelliSense(activeAssembly, wsRoot, activeMainPackage, cfg.get('buildFlags', ''), outputChannel)
       .catch(err => console.warn('UPP: updateIntelliSense failed:', err));
   }
 
@@ -573,9 +570,17 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showWarningMessage(`UPP: Debug output directory not found: ${debugDir}. Build the project first.`);
       }
     }),
-    vscode.commands.registerCommand('upp.openHelp', () => {
+    vscode.commands.registerCommand('upp.openReadme', () => {
       const readmeUri = vscode.Uri.joinPath(context.extensionUri, 'README.md');
       vscode.commands.executeCommand('markdown.showPreview', readmeUri);
+    }),
+    vscode.commands.registerCommand('upp.openHelp', () => {
+      const uri = vscode.Uri.joinPath(context.extensionUri, 'docs', 'HELP.md');
+      vscode.commands.executeCommand('markdown.showPreview', uri);
+    }),
+    vscode.commands.registerCommand('upp.openTODO', () => {
+      const uri = vscode.Uri.joinPath(context.extensionUri, 'docs', 'TODO.md');
+      vscode.commands.executeCommand('markdown.showPreview', uri);
     }),
     vscode.commands.registerCommand('upp.openKeybindings', () => {
       vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'UPP:');
@@ -589,24 +594,39 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!root) return;
       const cfg = vscode.workspace.getConfiguration('upp');
       const buildFlags = cfg.get('buildFlags', '');
-      await updateIntelliSense(activeAssembly!, root, activeMainPackage, buildFlags);
+      await updateIntelliSense(activeAssembly!, root, activeMainPackage, buildFlags, outputChannel);
     }),
     vscode.commands.registerCommand('upp.generateCompileCommands', async () => {
       if (!(await ensureActiveAssembly())) return;
-      const cfg = vscode.workspace.getConfiguration('upp');
-      const mode: string = cfg.get('compileCommandsMode', 'off');
-      if (mode === 'off') {
-        vscode.window.showInformationMessage(
-          'UPP: compile_commands.json generation is off. ' +
-          'Set "upp.compileCommandsMode" to "manual" or "auto" in settings.'
-        );
-        return;
-      }
       await doCompileCommandsGeneration(activeAssembly!, activeMainPackage!, outputChannel);
     }),
-    vscode.commands.registerCommand('upp.generateClangJson', async () => {
-      if (!(await ensureActiveAssembly())) return;
-      await doCompileCommandsGeneration(activeAssembly!, activeMainPackage!, outputChannel);
+    vscode.commands.registerCommand('upp.editCompileCommands', async () => {
+      if (!(await ensureActiveAssembly()) || !activeMainPackage) return;
+      const pkg = activeMainPackage;
+      const pkgDir = pkg ? path.join(
+        activeAssembly!.nests.find(n =>
+          fs.existsSync(path.join(n, pkg.replace(/\//g, path.sep)))
+        ) ?? activeAssembly!.nests[0],
+        pkg.replace(/\//g, path.sep)
+      ) : undefined;
+      if (!pkgDir) return;
+      const ccPath = path.join(pkgDir, 'compile_commands.json');
+      if (!fs.existsSync(ccPath)) {
+        const choice = await vscode.window.showWarningMessage(
+          'compile_commands.json not found. Generate it first?',
+          'Generate', 'Cancel'
+        );
+        if (choice === 'Generate') {
+          await doCompileCommandsGeneration(activeAssembly!, activeMainPackage!, outputChannel);
+          if (fs.existsSync(ccPath)) {
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(ccPath));
+            await vscode.window.showTextDocument(doc);
+          }
+        }
+        return;
+      }
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(ccPath));
+      await vscode.window.showTextDocument(doc);
     }),
     vscode.commands.registerCommand('upp.syncWorkspaces', async () => {
       await syncWorkspaces();
@@ -637,7 +657,6 @@ export async function activate(context: vscode.ExtensionContext) {
         placeHolder: 'umk assembly package method -flags +config',
       });
       if (edited !== undefined && edited !== current) {
-        console.log(`[UPP] editBuildCmd → buildCommand = "${edited}"`);
         await cfg.update('buildCommand', edited, vscode.ConfigurationTarget.Workspace);
         updateStatusBar();
       }

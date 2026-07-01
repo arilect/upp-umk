@@ -185,7 +185,6 @@ async function switchWorkspaceInner(
     if (buildParams) {
       await persistSetting('upp.buildMethod', buildParams.buildMethod, cfg);
       await persistSetting('upp.configurationFlag', buildParams.configurationFlag, cfg);
-      console.log(`[UPP] workspace.switchWorkspace → buildCommand = "${buildParams.buildCommand}"`);
       await persistSetting('upp.buildCommand', buildParams.buildCommand, cfg);
     } else if (wsCreated) {
       // Read saved settings from the workspace file we just wrote
