@@ -352,6 +352,8 @@ document.addEventListener('DOMContentLoaded', () => {
   .section { padding: 2px 0; }
   .section-header {
     display: flex;
+    flex-wrap: nowrap;
+    min-width: 0;
     align-items: center;
     padding: 4px 0;
     border-radius: 4px;
@@ -413,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     font-size: 14px;
     font-weight: 600;
     background: var(--btn-bg);
-    color: var(--btn-fg);
+    color: #000;
     padding: 2px 8px;
     border-radius: 6px;
     max-width: 160px;
@@ -423,12 +425,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   .bm-header-btn .chevron { color: var(--label-fg); font-size: 14px; transition: transform 0.15s; }
   .bm-dropdown-wrap {
-    position: static;
+    position: absolute;
     z-index: 1000;
+    top: 100%;
+    right: 0;
     margin: 0;
-    align-self: stretch;
     display: flex;
-    align-items: flex-end;
   }
   .bm-dropdown-wrap .dropdown-options { left: auto; right: 0; min-width: unset; top: 100%; }
   .hint {
