@@ -58,6 +58,31 @@ export async function activate(context: vscode.ExtensionContext) {
   restoreState();
   updateStatusBar();
 
+  // Check if workspace file name matches active package
+  const wsFile = vscode.workspace.workspaceFile;
+  if (wsFile?.scheme === 'file' && activeMainPackage) {
+    const wsBaseName = path.basename(wsFile.fsPath, '.code-workspace');
+    const pkgBaseName = path.basename(activeMainPackage);
+    if (wsBaseName !== pkgBaseName) {
+      const panel = vscode.window.createWebviewPanel(
+        'uppMismatch', 'UPP: Workspace/Package Mismatch',
+        vscode.ViewColumn.One,
+        { enableScripts: false }
+      );
+      panel.webview.html = `<!DOCTYPE html><html><head><style>
+        body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:20px;}
+        h2{color:#f44;}
+        .ws{background:var(--vscode-input-background);padding:8px 12px;border-radius:4px;margin:8px 0;}
+      </style></head><body>
+        <h2>Workspace / Package Mismatch</h2>
+        <p>The workspace file and active package do not match:</p>
+        <div class="ws"><b>Workspace:</b> ${escHtml(wsBaseName)}</div>
+        <div class="ws"><b>Package:</b> ${escHtml(pkgBaseName)}</div>
+        <p>This means that AI (artificial idiot) was not able to fix the bug in the switch workspace chain. Delete workspace file, start again and pray.</p>
+      </body></html>`;
+    }
+  }
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       console.log(`[UPP] onDidChangeWorkspaceFolders: updateStatusBar only (no restoreState)`);
@@ -680,4 +705,8 @@ export function deactivate() {
   }
   outputChannel?.dispose();
   statusBarItem?.dispose();
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
