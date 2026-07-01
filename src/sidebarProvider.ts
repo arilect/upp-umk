@@ -553,11 +553,11 @@ document.addEventListener('DOMContentLoaded', () => {
       <span class="value" onclick="selectPackage(event)">${this._esc(packageName)}</span>
     </div>
     <div class="group-children">
+      ${row('Description', this.packageDescription || '(click to set)', 'upp.editDescription')}
+      ${row('Select from Assembly', assemblyName, 'upp.selectAssembly')}
+      <button class="btn btn-new" onclick="${this._cmd('upp.newPackage')}">New Package</button>
       <button class="btn btn-secondary" onclick="${this._cmd('upp.editInstallations')}">Source Trees</button>
       ${isWindows ? row('Source Tree', installationLabel, 'upp.selectInstallation') : ''}
-      <button class="btn btn-new" onclick="${this._cmd('upp.newPackage')}">New Package</button>
-      ${row('Select from Assembly', assemblyName, 'upp.selectAssembly')}
-      ${row('Description', this.packageDescription || '(click to set)', 'upp.editDescription')}
     </div>
   </div>
 
