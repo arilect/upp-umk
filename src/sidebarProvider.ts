@@ -382,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
     border-radius: 4px;
     cursor: pointer;
     font-weight: 500;
+    position: relative;
   }
   .group-header:hover { background: var(--row-hover); }
   .group-header .label { color: var(--value-fg); margin-left: 0; }
@@ -407,6 +408,53 @@ document.addEventListener('DOMContentLoaded', () => {
     margin: 0 3px;
   }
   .group-header .build-icon:hover { opacity: 1; background: var(--row-hover); }
+  .bm-header-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 0 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+  }
+  .bm-header-btn:hover { background: var(--row-hover); }
+  .bm-header-btn .value {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #fff);
+    padding: 2px 8px;
+    border-radius: 6px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bm-header-btn .chevron {
+    color: var(--label-fg);
+    font-size: 14px;
+    transition: transform 0.15s;
+  }
+  .bm-dropdown-wrap {
+    position: static;
+    z-index: 1000;
+    margin: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: flex-end;
+  }
+  .bm-dropdown-wrap .dropdown-options {
+    left: auto;
+    right: 0;
+    min-width: unset;
+    top: 100%;
+  }
   .group-header .build-go { font-size: 18px; }
   .group-header .build-rebuild { color: #c53535; }
   .group-header .chevron {
@@ -566,19 +614,13 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="group">
     <div class="group-header" data-group-id="buildMethod" onclick="toggleGroup(this)">
       <span class="chevron">\u25BE</span>
+      <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildMethod', args: ['${this._esc(bm?.filePath || '')}'] })" title="Edit build method">\u270E</span>
       <span class="label">Build Method</span>
-      <span class="value">${this._esc(method)}</span>
-    </div>
-    <div class="group-children">
-      <div class="dropdown-container">
-        <button class="dropdown-btn" onclick="toggleDropdown('bm-dropdown')">
-          <span class="label-group">
-            <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editBuildMethod', args: ['${this._esc(bm?.filePath || '')}'] })" title="Edit build method">\u270E</span>
-            <span class="label">Build Method</span>
-          </span>
-          <span class="value">${this._esc(bmName || none)}</span>
-          <span class="chevron">\u25BE</span>
-        </button>
+      <button class="bm-header-btn" onclick="event.stopPropagation(); toggleDropdown('bm-dropdown')">
+        <span class="value">${this._esc(bmName || none)}</span>
+        <span class="chevron">\u25BE</span>
+      </button>
+      <div class="dropdown-container bm-dropdown-wrap" onclick="event.stopPropagation()">
         <div id="bm-dropdown" class="dropdown-options">
           ${bms.length > 0 ? bms.map(b => {
             const isSelected = b.name === bmName || b.filePath === bmName;
@@ -589,6 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }).join('') : '<div class="dropdown-option disabled"><span>No build methods found</span></div>'}
         </div>
       </div>
+    </div>
+    <div class="group-children">
       <div class="dropdown-container">
         <button class="dropdown-btn" onclick="toggleDropdown('linkmode-dropdown')">
           <span class="label">Link Mode</span>
