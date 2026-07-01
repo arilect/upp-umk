@@ -516,7 +516,7 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.commands.executeCommand('workbench.action.openGlobalKeybindings', 'UPP:');
     }),
     vscode.commands.registerCommand('upp.showExtensionLogs', () => {
-      vscode.commands.executeCommand('workbench.action.showOutputChannels');
+      vscode.commands.executeCommand('workbench.action.webview.openDeveloperTools');
     }),
     vscode.commands.registerCommand('upp.updateIntelliSense', async () => {
       if (!(await ensureActiveAssembly())) return;

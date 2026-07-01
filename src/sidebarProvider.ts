@@ -707,7 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="row" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'workbench.action.openSettings', args: ['@ext:arilect.upp-umk'] })">
     <span class="label">Settings</span>
   </div>
-  ${row('Extension Logs', '', 'upp.showExtensionLogs')}
+  ${row('WebView DevTools', '', 'upp.showExtensionLogs')}
   ${row('Help', 'README', 'upp.openHelp')}
 
 </body>
