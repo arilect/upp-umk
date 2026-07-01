@@ -53,6 +53,7 @@ export async function updateIntelliSense(
   workspaceRoot: string,
   mainPackage?: string,
   buildFlags?: string,
+  outputChannel?: vscode.OutputChannel,
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration('upp');
   const buildMethod: string = config.get('buildMethod', 'GCC');
@@ -117,9 +118,22 @@ export async function updateIntelliSense(
 
   fs.writeFileSync(propertiesPath, JSON.stringify(properties, null, 2), 'utf8');
 
+  if (outputChannel) {
+    outputChannel.appendLine('');
+    outputChannel.appendLine(`IntelliSense: ${includePaths.length} include paths from ${assembly.nests.length} nests in assembly "${assembly.name}"`);
+    for (const p of includePaths) {
+      const nest = assembly.nests.find(n => p === n || p.startsWith(n + path.sep));
+      const nestName = nest ? path.basename(nest) : '(unknown)';
+      outputChannel.appendLine(`  [${nestName}] ${p}`);
+    }
+  }
+
   const ccMsg = compileCommands ? ' (compile_commands.json linked)' : '';
+  const pathDetails = includePaths.map(p => {
+    const nest = assembly.nests.find(n => p === n || p.startsWith(n + path.sep));
+    return `${nest ? path.basename(nest) : '?'}: ${p}`;
+  }).join(', ');
   vscode.window.showInformationMessage(
-    `UPP: IntelliSense updated — ${includePaths.length} include paths` +
-    ` from ${assembly.nests.length} nests in assembly "${assembly.name}"${ccMsg}`
+    `UPP: IntelliSense updated — ${includePaths.length} include paths from ${assembly.nests.length} nests in assembly "${assembly.name}"${ccMsg}\n${pathDetails}`
   );
 }
