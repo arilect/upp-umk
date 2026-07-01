@@ -211,25 +211,27 @@ async function switchWorkspaceInner(
   }
 
   // --- Offer to switch to the package's workspace file ---
-  // Only notify when:
-  //   (a) the workspace file was successfully created/updated, AND
-  //   (b) the correct workspace is not already open, AND
-  //   (c) the file didn't exist before (first creation) — to avoid nagging
-  //       every time the user selects a different package in the same assembly.
-  if (wsCreated && !correctWsOpen && !wsFileExists) {
-    logWorkspaces(`Workspace file created: ${wsPath}`);
+  if (wsCreated && !correctWsOpen) {
     const autoSwitch = cfg.get<boolean>('autoPackageSwitchWorkspace', true);
 
-    const shouldSwitch = autoSwitch
-      ? true
-      : await vscode.window.showInformationMessage(
+    if (autoSwitch) {
+      logWorkspaces(`Auto-switching to workspace: ${wsPath}`);
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(wsPath), false);
+      return; // VSCode reloads the window — no more work to do
+    }
+
+    // Prompt only on first creation to avoid nagging
+    if (!wsFileExists) {
+      logWorkspaces(`Workspace file created: ${wsPath}`);
+      const shouldSwitch = await vscode.window.showInformationMessage(
           `UPP: Workspace created for "${pkgName}". Switch?`,
           'Switch', 'Stay'
         ) === 'Switch';
 
-    if (shouldSwitch) {
-      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(wsPath), false);
-      return; // VSCode reloads the window — no more work to do
+      if (shouldSwitch) {
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(wsPath), false);
+        return;
+      }
     }
   }
 
