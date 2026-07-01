@@ -84,7 +84,7 @@ export async function activate(context: vscode.ExtensionContext) {
         <p>The workspace file and active package do not match:</p>
         <div class="ws"><b>Workspace:</b> ${escHtml(wsBaseName)}</div>
         <div class="ws"><b>Package:</b> ${escHtml(pkgBaseName)}</div>
-        <p>This means that AI (artificial idiot) was not able to fix the bug in the switch workspace chain. Delete workspace file, start again and pray.</p>
+        <p>This means that a bug in switching workspace chain still exist or you have opened the workspace not via upp-umk extension. You can fix the workspace by clicking the button below or continue to work without upp-umk intended functionality.</p>
         <br/>
         <button class="btn-primary" id="btnRecreate">Recreate workspace from ${escHtml(pkgBaseName)}.upp</button>
         <div id="status" style="margin-top:12px;opacity:0.8;"></div>
