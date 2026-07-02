@@ -236,6 +236,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Cleanup stale compile_commands.json from previous sessions
   // so the C++ extension doesn't show compiler path errors on unrelated actions.
+ /*
   if (activeAssembly?.nests) {
     for (const nest of activeAssembly.nests) {
       if (!fs.existsSync(nest)) continue;
@@ -248,6 +249,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }
   }
+  */
 
   // Regenerate IntelliSense config to reflect current file state
   // (removes stale compileCommands references if the file was just deleted)

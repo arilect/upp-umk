@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Assembly, resolveIncludePaths, resolveWorkspaceFolders } from './assemblyParser';
+import { resolveCppStandard } from './utils';
 
 interface CppPropertiesConfig {
   name: string;
@@ -94,14 +95,15 @@ export async function updateIntelliSense(
 
   const relativeIncludePaths = includePaths.map(p => toRelativePath(p, workspaceRoot));
 
-  const cppStd: string = config.get('cppStandard', '');
+  const varDir = config.get<string>('varDir', '');
+  const cppStd = resolveCppStandard(buildMethod, varDir, config);
 
   const newConfig: CppPropertiesConfig = {
     name: 'UPP',
     includePath: relativeIncludePaths,
     defines,
     cStandard: 'c17',
-    cppStandard: cppStd || 'c++17',
+    cppStandard: cppStd,
     intelliSenseMode,
   };
 

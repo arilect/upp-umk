@@ -6,7 +6,7 @@ import {
   Assembly,
   resolveWorkspaceFolders,
 } from './assemblyParser';
-import { updateWorkspaceFile, persistSetting, resolveUmkPath } from './utils';
+import { updateWorkspaceFile, persistSetting, resolveUmkPath, resolveCppStandard } from './utils';
 import { activeInstallation } from './state';
 
 // ─── Parse editable command string ────────────────────────────────────────────
@@ -156,20 +156,36 @@ export async function generateCompileCommands(
 
   // Strip header-file entries so clangd analyses headers in context rather than
   // as isolated TUs (which causes "Unknown type name" false errors in U++ code).
+  // Also extract -D/-I/-std flags from the first .cpp entry for .clangd generation.
   const HEADER_EXTS = new Set(['.h', '.hpp', '.hxx', '.hh', '.inl']);
   let totalRemoved = 0;
+  const extractedDefines = new Set<string>();
+  const extractedIncludes = new Set<string>();
+  let extractedStd = '';
   for (const dir of processed) {
     const ccPath = path.join(dir, 'compile_commands.json');
     try {
       // umk emits JSON with a trailing comma before the closing ']' — strip it
       // before parsing since JSON.parse rejects trailing commas.
       const raw = fs.readFileSync(ccPath, 'utf8').replace(/,(\s*])/g, '$1');
-      const entries: { file: string; [k: string]: unknown }[] = JSON.parse(raw);
+      const entries: { file: string; command?: string; [k: string]: unknown }[] = JSON.parse(raw);
       const filtered = entries.filter(e => !HEADER_EXTS.has(path.extname(e.file).toLowerCase()));
       const removed = entries.length - filtered.length;
       if (removed > 0) {
         fs.writeFileSync(ccPath, JSON.stringify(filtered, null, '\t'), 'utf8');
         totalRemoved += removed;
+      }
+
+      // Extract flags from the first .cpp entry's command string
+      if (!extractedStd) {
+        const cppEntry = entries.find(e => e.command && e.file?.endsWith('.cpp'));
+        if (cppEntry?.command) {
+          const cmd = cppEntry.command;
+          for (const m of cmd.matchAll(/-D(\S+)/g)) extractedDefines.add(m[1]);
+          for (const m of cmd.matchAll(/-I(\S+)/g)) extractedIncludes.add(m[1]);
+          const stdMatch = cmd.match(/-std=(c\+\+\S+)/);
+          if (stdMatch) extractedStd = stdMatch[1];
+        }
       }
     } catch { /* skip unreadable files */ }
 
@@ -185,6 +201,46 @@ export async function generateCompileCommands(
       ? `  clangd: stripped ${totalRemoved} header entries from compile_commands.json files`
       : `  clangd: no header entries to strip`
   );
+
+  // Generate .clangd configuration files in each package directory
+  const extractedFlags = {
+    defines: Array.from(extractedDefines),
+    includes: Array.from(extractedIncludes),
+    std: extractedStd,
+  };
+  const preamblePath = await generateClangdConfig(assembly, buildMethod, processed, extractedFlags, outputChannel);
+
+  // Inject -include <preamble> into every compile_commands.json entry so clangd
+  // always has U++ types available — even when it resolves headers via the
+  // compile database instead of .clangd.
+  if (preamblePath) {
+    let patched = 0;
+    for (const dir of processed) {
+      const ccPath = path.join(dir, 'compile_commands.json');
+      try {
+        const raw = fs.readFileSync(ccPath, 'utf8').replace(/,(\s*])/g, '$1');
+        const entries: { file: string; command?: string; [k: string]: unknown }[] = JSON.parse(raw);
+        const includeFlag = `-include ${preamblePath}`;
+        let changed = false;
+        for (const entry of entries) {
+          if (entry.command && !entry.command.includes(includeFlag)) {
+            entry.command = entry.command.replace(
+              'clang++ ',
+              `clang++ ${includeFlag} `
+            );
+            changed = true;
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(ccPath, JSON.stringify(entries, null, '\t'), 'utf8');
+          patched++;
+        }
+      } catch { /* skip */ }
+    }
+    if (patched > 0) {
+      outputChannel.appendLine(`  clangd: injected preamble -include into ${patched} compile_commands.json files`);
+    }
+  }
 
   return processed;
 }
@@ -215,6 +271,116 @@ function derivePackageName(dir: string, nests: string[]): string {
     }
   }
   return path.basename(dir);
+}
+
+// ─── .clangd Configuration ────────────────────────────────────────────────────
+
+interface ExtractedFlags {
+  defines: string[];
+  includes: string[];
+  std: string;
+}
+
+/**
+ * Generate .clangd configuration files in each package directory.
+ * Flags are extracted from the actual compile_commands.json entries produced
+ * by umk, so the .clangd matches the real build configuration exactly.
+ *
+ * A preamble header (upp-clangd-preamble.h) is written to the workspace root.
+ * It includes Core/Core.h and brings the Upp namespace into global scope,
+ * so U++ headers like Value.h work when opened directly in the editor.
+ */
+async function generateClangdConfig(
+  assembly: Assembly,
+  buildMethod: string,
+  processedDirs: string[],
+  extractedFlags: ExtractedFlags,
+  outputChannel: vscode.OutputChannel,
+): Promise<string | undefined> {
+  if (processedDirs.length === 0) return undefined;
+
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+  if (!root) return;
+
+  // Use extracted std if available, otherwise fall back to resolveCppStandard
+  let stdFlag: string;
+  if (extractedFlags.std) {
+    stdFlag = `-std=${extractedFlags.std}`;
+  } else {
+    const cfg = vscode.workspace.getConfiguration('upp');
+    const varDir = cfg.get<string>('varDir', '');
+    stdFlag = `-std=${resolveCppStandard(buildMethod, varDir, cfg)}`;
+  }
+
+  // Write preamble header: includes Core/Core.h and brings Upp:: into global scope.
+  // This lets clangd resolve U++ types (dword, String, Value, etc.) when opening
+  // headers directly — U++ headers are not self-contained and expect namespace Upp.
+  // Placed in uppsrc root so it's accessible from any nest directory.
+  const uppSrcPath = extractedFlags.includes.find(p => p.endsWith('/uppsrc'));
+  const preambleDir = uppSrcPath || root;
+  const preamblePath = path.join(preambleDir, 'upp-clangd-preamble.h');
+  const preambleContent = `// Auto-generated by U++ extension — do not edit
+#include "Core/Core.h"
+using namespace Upp;
+`;
+  try {
+    fs.writeFileSync(preamblePath, preambleContent, 'utf8');
+  } catch { /* skip */ }
+
+  const dFlags = extractedFlags.defines.map(d => `    "-D${d}"`).join(',\n');
+  const iPaths = extractedFlags.includes.map(p => `    "-I${p}"`).join(',\n');
+
+  let ifBlock = '';
+  if (uppSrcPath) {
+    const escaped = uppSrcPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    ifBlock = `
+If:
+  PathMatch: ["${escaped}/Core/.*\\\\.i$"]
+Diagnostics:
+  Suppress: ["*"]
+`;
+  }
+
+  const clangdContent = `CompileFlags:
+  Add: [
+    "${stdFlag}",
+    "-x", "c++",
+    "-include", "${preamblePath}",
+${dFlags},
+${iPaths}
+  ]
+
+Diagnostics:
+  Suppress:
+    - "unknown_type_leading_errors"
+    - "ambiguous_reference"
+    - "ovl_ambiguous_call"
+    - "access"
+    - "access_field_ctor"
+${ifBlock}`;
+
+  let written = 0;
+  for (const dir of processedDirs) {
+    try {
+      fs.writeFileSync(path.join(dir, '.clangd'), clangdContent, 'utf8');
+      written++;
+    } catch { /* skip */ }
+  }
+
+  // Also write .clangd to each assembly nest so U++ headers opened directly
+  // (e.g. Core/Value.h) pick up the preamble and flags.
+  // clangd discovers .clangd by walking UP from the file, not from the workspace root.
+  let nestsWritten = 0;
+  for (const nest of assembly.nests) {
+    if (processedDirs.includes(nest)) continue; // already has .clangd
+    try {
+      fs.writeFileSync(path.join(nest, '.clangd'), clangdContent, 'utf8');
+      nestsWritten++;
+    } catch { /* skip */ }
+  }
+
+  outputChannel.appendLine(`  clangd: wrote .clangd to ${written} package dirs + ${nestsWritten} nest dirs`);
+  return preamblePath;
 }
 
 interface RunUmkOptions {

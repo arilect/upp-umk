@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { UppInstallation } from './installations';
+import { findBuildMethods, parseBmFile } from './assemblyParser';
 
 /**
  * Read-modify-write the .code-workspace file in one sync block.
@@ -49,4 +50,26 @@ export function resolveUmkPath(cfg: vscode.WorkspaceConfiguration, installation?
     return path.join(installation.path, 'umk.exe');
   }
   return 'umk';
+}
+
+/**
+ * Resolve the active C++ standard from the build method's .bm file
+ * (COMMON_CPP_OPTIONS -std=c++XX), falling back to the upp.cppStandard
+ * workspace setting, then to 'c++17'.
+ */
+export function resolveCppStandard(
+  buildMethod: string,
+  varDir: string,
+  cfg: vscode.WorkspaceConfiguration,
+): string {
+  if (buildMethod) {
+    const bms = findBuildMethods(varDir);
+    const bm = bms.find(b => b.name === buildMethod || b.filePath === buildMethod);
+    if (bm) {
+      const data = parseBmFile(bm.filePath);
+      const match = data.COMMON_CPP_OPTIONS?.match(/-std=(c\+\+\S+)/);
+      if (match) return match[1];
+    }
+  }
+  return cfg.get<string>('cppStandard', '') || 'c++17';
 }
