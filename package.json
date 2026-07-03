@@ -2,7 +2,7 @@
   "name": "upp-umk",
   "displayName": "U++ (formerly Ultimate++) Integration",
   "description": "Build, run, and manage U++ (Ultimate++) assemblies and packages via the umk command-line tool",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -135,9 +135,15 @@
       },
       {
         "command": "upp.generateCompileCommands",
-        "title": "Generate compile_commands.json",
+        "title": "Generate IntelliSense Files",
         "category": "UPP",
         "icon": "$(json)"
+      },
+      {
+        "command": "upp.openIntellisensePanel",
+        "title": "IntelliSense Settings",
+        "category": "UPP",
+        "icon": "$(settings)"
       },
       {
         "command": "upp.stopRun",
@@ -189,7 +195,7 @@
       },
       {
         "command": "upp.generateCompileCommands",
-        "title": "Generate compile_commands.json",
+        "title": "Generate IntelliSense Files",
         "category": "UPP",
         "icon": "$(json)"
       },
@@ -412,9 +418,9 @@
         },
         "upp.compileCommandsMode": {
           "type": "string",
-          "enum": ["off", "auto", "manual"],
-          "default": "off",
-          "description": "compile_commands.json generation mode. 'auto' watches source files and regenerates on changes, 'manual' provides a command to generate on demand, 'off' disables. Workspace setting overrides user setting."
+          "enum": ["auto", "manual"],
+          "default": "auto",
+          "description": "compile_commands.json generation mode. 'auto' watches source files and regenerates on changes, 'manual' provides a command to generate on demand. Workspace setting overrides user setting."
         },
         "upp.generateCompileCommands": {
           "type": "string",
@@ -435,6 +441,12 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically restart the clangd language server after generating compile_commands.json. Ensures clangd picks up the new data immediately."
+        },
+        "upp.clangdSuppress": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["ambiguous_reference", "ovl_ambiguous_call", "access", "access_field_ctor", "undeclared_var_use_suggest", "unknown_type_leading_errors"],
+          "description": "Clangd diagnostic codes to suppress for U++ framework headers. These are false positives caused by U++ headers not being self-contained."
         }
       }
     },

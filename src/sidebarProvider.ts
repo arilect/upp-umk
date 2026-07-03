@@ -55,6 +55,9 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
           case 'setBuildMethod':
             vscode.commands.executeCommand('upp.setBuildMethod', message.value);
             break;
+          case 'setCompileCommandsMode':
+            vscode.commands.executeCommand('upp.setCompileCommandsMode', message.value);
+            break;
           case 'toggleStopOnErrors':
             vscode.commands.executeCommand('upp.toggleStopOnErrors');
             break;
@@ -132,6 +135,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
       ? [umkPathDisplay, this.assembly.name, path.basename(this.mainPackage), method, effectiveFlags ? `-${effectiveFlags}` : '', extra !== none ? `+${extra}` : ''].filter(Boolean).join(' ')
       : cfg.get<string>('buildCommand', '') || none;
     const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
+    const compileCommandsMode = cfg.get<string>('compileCommandsMode', 'auto');
     const installationLabel = this.installation?.label ?? 'click to set';
     const isWindows = process.platform === 'win32';
     const stopOnErrors = cfg.get<boolean>('stopOnErrors');
@@ -241,6 +245,10 @@ function selectCppStandard(value) {
 function selectBuildMethod(value) {
   closeAllDropdowns();
   vscode.postMessage({ command: 'setBuildMethod', value: value });
+}
+function selectCompileCommandsMode(value) {
+  closeAllDropdowns();
+  vscode.postMessage({ command: 'setCompileCommandsMode', value: value });
 }
 function toggleStopOnErrors() {
   vscode.postMessage({ command: 'toggleStopOnErrors' });
@@ -527,7 +535,11 @@ document.addEventListener('DOMContentLoaded', () => {
   .checkbox-row:hover { background: var(--row-hover); }
   .checkbox-input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
   .clang-label { display: inline-flex; align-items: center; gap: 4px; }
-  .clang-actions { display: inline-flex; gap: 4px; }
+  .clang-actions { display: inline-flex; gap: 4px; align-items: center; margin-left: auto; }
+  .clang-intellisense-row { position: relative; }
+  .clang-mode { margin: 0; }
+  .clang-mode .dropdown-btn { padding: 1px 6px; min-width: 0; width: auto; justify-content: flex-end; }
+  .clang-mode .dropdown-btn .value { padding: 1px 6px; font-size: 12px; min-width: 0; background: var(--btn-bg); border-radius: 6px; color: #000; }
   .btn--sm { width: auto; padding: 2px 10px; font-size: 12px; }
 </style>
 </head>
@@ -687,13 +699,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${separator}
 
-  <div class="property-row">
+  <div class="property-row clang-intellisense-row">
     <span class="label clang-label">
-      <span class="edit-icon" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.editCompileCommands' })" title="Edit compile_commands.json">\u270E</span>
-      <span class="label">compile_commands.json</span>
+      <span class="label">IntelliSense Files</span>
     </span>
-    <span class="value clang-actions">
-      <button class="btn btn--primary btn--sm" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.generateCompileCommands' })">Generate</button>
+    <div class="dropdown-container clang-mode">
+      <button class="dropdown-btn" onclick="toggleDropdown('ccmd-dropdown')">
+        <span class="value">${this._esc(compileCommandsMode)}</span>
+        <span class="chevron">\u25BE</span>
+      </button>
+      <div id="ccmd-dropdown" class="dropdown-options">
+        <div class="dropdown-option ${compileCommandsMode === 'auto' ? 'selected' : ''}" onclick="selectCompileCommandsMode('auto')">
+          <span>auto</span>
+          ${compileCommandsMode === 'auto' ? '<span class="check">\u2713</span>' : ''}
+        </div>
+        <div class="dropdown-option ${compileCommandsMode === 'manual' ? 'selected' : ''}" onclick="selectCompileCommandsMode('manual')">
+          <span>manual</span>
+          ${compileCommandsMode === 'manual' ? '<span class="check">\u2713</span>' : ''}
+        </div>
+      </div>
+    </div>
+    <span class="clang-actions">
+      <button class="btn btn--primary btn--sm" onclick="event.stopPropagation(); vscode.postMessage({ command: 'executeCommand', commandId: 'upp.generateCompileCommands' })">${compileCommandsMode === 'auto' ? 'Regenerate' : 'Generate'}</button>
     </span>
   </div>
 
