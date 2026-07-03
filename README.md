@@ -4,7 +4,11 @@ Build, run, debug, and manage **[U++](https://ultimatepp.org)** packages in VSCo
 
 [**Install from VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=arilect.upp-umk)
 
-> **Note:** This extension has been tested on Linux, particularly on Arch/CachyOS. Windows and macOS support still needs work.
+> **🚧 Under Active Development**
+> 
+> This extension is evolving rapidly — expect the occasional rough edge as features land.
+> Primary development happens on **Linux** (Arch/CachyOS). **Windows** is supported but slightly behind.
+> **macOS** has not been tested yet — contributions welcome.
 
 ## What is U++?
 
@@ -45,6 +49,7 @@ But such blame https://www.reddit.com/r/cpp/comments/juiudg/comment/gce8yuz/?utm
 - **Debug** — build with debug symbols and launch gdb automatically
 - **IntelliSense** — auto-generate `c_cpp_properties.json` and `compile_commands.json` for accurate code completion
 - **clangd integration** — auto-generate `compile_commands.json` with watch mode, auto-restart clangd
+- **IntelliSense settings panel** — configure generation mode, UMK command, clangd diagnostic suppression, and view `c_cpp_properties.json`
 - **Workspace management** — automatic `.code-workspace` creation and switching per assembly
 - **Configurable** — build methods, flags, link modes, output paths, and more
 
@@ -97,6 +102,7 @@ The sidebar shows the current build state and provides quick access to all actio
 | **Debug Cmd** | The debug build command |
 | **Debug Output Dir** | Where the debug binary is built |
 | **Output Dir** | Where the release binary is built |
+| **IntelliSense Files** | Generation mode dropdown + Generate/Regenerate button |
 
 ### Package Selection
 
@@ -141,10 +147,11 @@ Click **+ New Assembly** at the bottom of the assembly list to create a new asse
 | `upp.buildCommand` | `""` | Auto-generated umk build command (editable) |
 | `upp.debugCommand` | `""` | Auto-generated debug build command (strips `r` and `d` flags) |
 | `upp.releaseCommand` | `""` | Auto-generated release build command (adds `r` flag) |
-| `upp.compileCommandsMode` | `"off"` | `compile_commands.json`: `"off"`, `"manual"`, or `"auto"` |
-| `upp.compileCommandsCommand` | `""` | Auto-generated umk command for compile_commands.json |
+| `upp.compileCommandsMode` | `"auto"` | `"manual"` or `"auto"` — how compile_commands.json files are generated |
+| `upp.generateCompileCommands` | `""` | Auto-generated umk command for compile_commands.json |
 | `upp.outputConsole` | `"auto"` | When to open output panel: `"always"`, `"auto"`, `"never"` |
 | `upp.restartClangdAfterGenerate` | `true` | Restart clangd after generating compile_commands.json |
+| `upp.clangdSuppress` | `["ambiguous_reference", ...]` | Clangd diagnostic codes to suppress for U++ framework headers |
 | `upp.autoPackageSwitchWorkspace` | `true` | Auto-switch workspace when selecting a package |
 
 ## Debugging
@@ -195,9 +202,8 @@ For clangd and clang-based tooling.
 
 | Mode | Behavior |
 |---|---|
-| `off` | Generation disabled (default) |
+| `auto` | Watch source files, regenerate automatically (2s debounce) — **default** |
 | `manual` | Generate on demand via sidebar button |
-| `auto` | Watch source files, regenerate automatically (2s debounce) |
 
 ### clangd integration
 
@@ -238,7 +244,7 @@ The `UPP` key holds semicolon-separated nest directories used for include path r
 
 ## Known Limitations
 
-- **Linux only** for now — Windows and macOS support is planned but not yet tested
+- **Linux-first** — primary development and testing on Arch/CachyOS. Windows works but may lag behind. macOS is untested.
 - **U++ required** — `umk` must be installed and available on `$PATH`
 - **GDB required** — debugging needs gdb installed (`sudo apt install gdb` on Debian/Ubuntu, `pacman -S gdb` on Arch)
 
