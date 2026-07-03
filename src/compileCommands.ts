@@ -330,39 +330,37 @@ using namespace Upp;
   const dFlags = extractedFlags.defines.map(d => `    "-D${d}"`).join(',\n');
   const iPaths = extractedFlags.includes.map(p => `    "-I${p}"`).join(',\n');
 
-  let ifBlock = '';
-  if (uppSrcPath) {
-    const escaped = uppSrcPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    ifBlock = `
-If:
-  PathMatch: ["${escaped}/Core/.*\\\\.i$"]
-Diagnostics:
-  Suppress: ["*"]
-`;
-  }
-
-  const clangdContent = `CompileFlags:
+  // U++ framework headers (under uppsrc/) are not self-contained — they rely on
+  // being compiled inside namespace Upp { } with specific include ordering.
+  // clangd can't replicate theide's per-file include trick, so diagnostics for
+  // framework headers are all false positives. User project code keeps full diagnostics.
+  const clangdBase = `CompileFlags:
   Add: [
     "${stdFlag}",
     "-x", "c++",
     "-include", "${preamblePath}",
 ${dFlags},
 ${iPaths}
-  ]
+  ]`;
 
+  // Read the user-configurable suppression list from settings.
+  const cfg = vscode.workspace.getConfiguration('upp');
+  const suppressList = cfg.get<string[]>('clangdSuppress', [
+    'ambiguous_reference', 'ovl_ambiguous_call', 'access',
+    'access_field_ctor', 'undeclared_var_use_suggest', 'unknown_type_leading_errors',
+  ]);
+  const suppressItems = suppressList.map(d => `    - "${d}"`).join('\n');
+  const clangdFramework = `
 Diagnostics:
   Suppress:
-    - "unknown_type_leading_errors"
-    - "ambiguous_reference"
-    - "ovl_ambiguous_call"
-    - "access"
-    - "access_field_ctor"
-${ifBlock}`;
+${suppressItems}
+`;
 
   let written = 0;
   for (const dir of processedDirs) {
     try {
-      fs.writeFileSync(path.join(dir, '.clangd'), clangdContent, 'utf8');
+      const isFramework = dir.replace(/\\/g, '/').includes('/uppsrc/');
+      fs.writeFileSync(path.join(dir, '.clangd'), clangdBase + (isFramework ? clangdFramework : '\n'), 'utf8');
       written++;
     } catch { /* skip */ }
   }
@@ -370,11 +368,12 @@ ${ifBlock}`;
   // Also write .clangd to each assembly nest so U++ headers opened directly
   // (e.g. Core/Value.h) pick up the preamble and flags.
   // clangd discovers .clangd by walking UP from the file, not from the workspace root.
+  // Nest dirs are always framework dirs.
   let nestsWritten = 0;
   for (const nest of assembly.nests) {
     if (processedDirs.includes(nest)) continue; // already has .clangd
     try {
-      fs.writeFileSync(path.join(nest, '.clangd'), clangdContent, 'utf8');
+      fs.writeFileSync(path.join(nest, '.clangd'), clangdBase + clangdFramework, 'utf8');
       nestsWritten++;
     } catch { /* skip */ }
   }

@@ -33,6 +33,7 @@ import { showRunOptionsPanel } from './runOptionsPanel';
 import { showInstallationsPanel } from './installationsPanel';
 import { showConfigFlagsPanel } from './configFlagsPanel';
 import { showCppStandardPanel } from './cppStandardPanel';
+import { showIntellisensePanel } from './intellisensePanel';
 import { showBuildEditPanel } from './buildEditPanel';
 import { showBuildMethodPanel, refreshBuildMethodPanel } from './buildMethodPanel';
 import { findBuildMethods } from './assemblyParser';
@@ -621,9 +622,14 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.editRunOptions', () => showRunOptionsPanel()),
     vscode.commands.registerCommand('upp.editConfigFlags', () => showConfigFlagsPanel()),
     vscode.commands.registerCommand('upp.editCppStandard', () => showCppStandardPanel()),
+    vscode.commands.registerCommand('upp.openIntellisensePanel', () => showIntellisensePanel()),
     vscode.commands.registerCommand('upp.setCppStandard', async (value: string) => {
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('cppStandard', value, vscode.ConfigurationTarget.Workspace);
+    }),
+    vscode.commands.registerCommand('upp.setCompileCommandsMode', async (value: string) => {
+      const cfg = vscode.workspace.getConfiguration('upp');
+      await cfg.update('compileCommandsMode', value, vscode.ConfigurationTarget.Workspace);
     }),
     vscode.commands.registerCommand('upp.setBuildMethod', async (value: string) => {
       const cfg = vscode.workspace.getConfiguration('upp');
