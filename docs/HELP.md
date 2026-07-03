@@ -119,9 +119,9 @@ Select a build method via **Build Method > Select Method** in the sidebar.
 
 ## clangd Integration
 
-### compile_commands.json
+### IntelliSense Files
 
-The **Generate** button (Compile Commands row in the sidebar) runs `umk -j` for every package in the active assembly's dependency tree. Each package directory gets its own `compile_commands.json` file.
+The **Intellisense Files** button (in the sidebar) runs `umk -j` for every package in the active assembly's dependency tree. Each package directory gets its own `compile_commands.json` file.
 
 **What it does:**
 - Walks the dependency tree starting from the main package's `.upp` file
@@ -131,7 +131,9 @@ The **Generate** button (Compile Commands row in the sidebar) runs `umk -j` for 
 
 **clangd picks up the files automatically** — it searches upward from each source file to find the nearest `compile_commands.json`. No merge into workspace root needed.
 
-### compile_commands.json vs c_cpp_properties.json
+Clicking the **Intellisense Files** row in the sidebar opens the IntelliSense Settings panel, where you can configure generation mode, UMK command, restart behavior, and diagnostic suppression. The `upp.clangdSuppress` setting controls which clangd diagnostics are suppressed for U++ framework headers.
+
+### IntelliSense Files vs c_cpp_properties.json
 
 | | compile_commands.json | c_cpp_properties.json |
 |---|---|---|
@@ -148,3 +150,27 @@ The **Generate** button (Compile Commands row in the sidebar) runs `umk -j` for 
 2. **Window not reloaded** — After generating, click Reload in the notification or run `Developer: Reload Window`
 3. **Wrong assembly** — Ensure the active assembly's `.var` file lists the correct nest directories
 4. **clangd restart conflict** — The extension shows a Reload button after generation instead of auto-restarting clangd (avoids `clangd.applyFix already exists` error)
+
+### IntelliSense Settings Panel
+
+Open the IntelliSense Settings panel by clicking the **Intellisense Files** row in the sidebar, or via the command palette.
+
+**Available settings:**
+
+| Setting | Description |
+|---|---|
+| Generation mode | How compile_commands.json files are generated (per-package, merged, etc.) |
+| UMK command | The `umk` binary path or command used for generation |
+| Restart behavior | Whether clangd is automatically restarted after generation |
+| Diagnostic suppression | Which clangd diagnostics to suppress for U++ framework headers |
+
+**Diagnostic suppression checklist:**
+
+The `upp.clangdSuppress` setting lets you suppress specific clangd diagnostics that produce false positives on U++ framework headers. Common candidates include:
+- `unused-includes` — U++ headers often pull in transitive dependencies
+- `missing-includes` — framework headers resolved via build system paths
+- `dangling-else` — macro-heavy code can trigger false warnings
+
+**c_cpp_properties.json viewer/editor:**
+
+The panel also displays the contents of the generated `c_cpp_properties.json` file, showing include paths, defines, and IntelliSense mode for reference.
