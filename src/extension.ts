@@ -758,13 +758,8 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Health check: notify user if no U++ installation is found
-  // Delay to ensure VS Code UI is fully loaded (notifications during activate get swallowed)
-  setTimeout(() => {
-    checkUppInstallation(context).catch(err => {
-      outputChannel?.appendLine(`UPP: Installation check failed: ${err.message}`);
-    });
-  }, 1500);
+  // Health check: show webview if no U++ installation is found
+  checkUppInstallation();
 }
 
 export function deactivate() {
@@ -789,61 +784,76 @@ function escHtml(s: string): string {
 
 // ─── Installation Health Check ────────────────────────────────────────────────
 
-async function checkUppInstallation(context: vscode.ExtensionContext): Promise<void> {
+function checkUppInstallation(): void {
   if (activeInstallation) return;
 
   outputChannel?.appendLine('UPP: No U++ installation found.');
 
-  const choice = await vscode.window.showWarningMessage(
-    'UPP: I was not able to find U++ installation.',
-    'Install U++',
-    'Configure Manually',
-    'Learn More'
-  );
-
-  if (choice === 'Install U++') {
-    await offerAutomaticInstallation();
-  } else if (choice === 'Configure Manually') {
-    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
-  } else if (choice === 'Learn More') {
-    vscode.env.openExternal(vscode.Uri.parse('https://www.ultimatepp.org/www$uppweb$download$en-us.html'));
-  }
-}
-
-async function offerAutomaticInstallation(): Promise<void> {
   const platform = process.platform;
-  let installCommand = '';
-  let platformName = '';
-
+  let installCmd = '';
   if (platform === 'win32') {
-    installCommand = 'winget install UltimatePP.UPP';
-    platformName = 'Windows';
+    installCmd = 'winget install UltimatePP.UPP';
   } else if (platform === 'darwin') {
-    installCommand = 'brew install ultimatepp';
-    platformName = 'macOS';
+    installCmd = 'brew install ultimatepp';
   } else {
-    installCommand = 'sudo apt install ultimatepp';
-    platformName = 'Linux';
+    installCmd = 'sudo apt install ultimatepp';
   }
 
-  const choice = await vscode.window.showInformationMessage(
-    `UPP: Would you like me to install U++ on ${platformName} using: ${installCommand}?`,
-    'Install',
-    'Cancel'
+  const panel = vscode.window.createWebviewPanel(
+    'uppNoInstall',
+    'UPP: Installation Not Found',
+    vscode.ViewColumn.One,
+    { enableScripts: true }
   );
 
-  if (choice === 'Install') {
-    const terminal = vscode.window.createTerminal('UPP: Install');
-    terminal.show();
-    terminal.sendText(installCommand);
+  panel.webview.html = `<!DOCTYPE html><html><head><style>
+    body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:20px;line-height:1.6;}
+    h2{color:#f44;margin-bottom:8px;}
+    p{margin:8px 0;}
+    code{background:var(--vscode-input-background);padding:2px 6px;border-radius:3px;font-size:0.9em;}
+    .cmd{background:var(--vscode-input-background);padding:10px 14px;border-radius:4px;margin:12px 0;font-family:var(--vscode-editor-font-family,monospace);font-size:0.95em;word-break:break-all;}
+    button{padding:8px 20px;border:none;border-radius:4px;cursor:pointer;font-size:0.95em;margin:4px 4px 4px 0;}
+    .btn-primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);}
+    .btn-primary:hover{background:var(--vscode-button-hoverBackground);}
+    .btn-secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);}
+    .btn-secondary:hover{background:var(--vscode-button-secondaryHoverBackground);}
+    .hint{font-size:0.85em;opacity:0.6;margin-top:12px;}
+  </style></head><body>
+    <h2>U++ Installation Not Found</h2>
+    <p>The extension was not able to find a U++ installation on this system.</p>
+    <p>To use this extension, you need U++ installed. You can install it with this command:</p>
+    <div class="cmd" id="cmdText">${escHtml(installCmd)}</div>
+    <br/>
+    <button class="btn-primary" id="btnInstall">Install U++</button>
+    <button class="btn-secondary" id="btnSettings">Configure Manually</button>
+    <button class="btn-secondary" id="btnLearn">Learn More</button>
+    <div id="status" class="hint"></div>
+    <script>
+      const vscode = acquireVsCodeApi();
+      document.getElementById('btnInstall').addEventListener('click', () => {
+        vscode.postMessage({ type: 'install' });
+        document.getElementById('status').textContent = 'Running install command...';
+      });
+      document.getElementById('btnSettings').addEventListener('click', () => {
+        vscode.postMessage({ type: 'settings' });
+      });
+      document.getElementById('btnLearn').addEventListener('click', () => {
+        vscode.postMessage({ type: 'learn' });
+      });
+    </script>
+  </body></html>`;
 
-    vscode.window.showInformationMessage(
-      'UPP: Installation started. Please restart VS Code after installation completes.',
-      'Restart Now'
-    ).then(selection => {
-      if (selection === 'Restart Now') {
-        vscode.commands.executeCommand('workbench.action.reloadWindow');
-      }
-    });
-  }
+  panel.webview.onDidReceiveMessage(async (msg) => {
+    if (msg.type === 'install') {
+      const terminal = vscode.window.createTerminal('UPP: Install');
+      terminal.show();
+      terminal.sendText(installCmd);
+      outputChannel?.appendLine(`UPP: Running install command: ${installCmd}`);
+      panel.webview.postMessage({ type: 'status', text: 'Installation started. Restart VS Code when done.' });
+    } else if (msg.type === 'settings') {
+      vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
+    } else if (msg.type === 'learn') {
+      vscode.env.openExternal(vscode.Uri.parse('https://www.ultimatepp.org/www$uppweb$download$en-us.html'));
+    }
+  });
 }
