@@ -1,5 +1,18 @@
 # U++ Extension Help
 
+## Installation Health Check
+
+When the extension starts and cannot find a U++ installation, it automatically opens a webview panel with three options:
+
+- **Install U++** — runs the platform-specific install command in a terminal:
+  - Linux: downloads the POSIX tarball from ultimatepp.org, extracts, builds from source, copies `umk` to `/usr/local/bin/`
+  - macOS: downloads the POSIX tarball, extracts, runs `./install` (requires Xcode CLI tools)
+  - Windows: downloads the `.7z` archive via PowerShell, extracts with 7z
+- **Configure Manually** — opens the extension settings
+- **Learn More** — opens the U++ download page
+
+The status bar also shows a warning icon with "No installation found" when no U++ installation is detected. Click it to open the source tree configuration.
+
 ## Source Trees Panel
 
 Open via the **Source Trees** button in the U++ sidebar.

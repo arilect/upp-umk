@@ -59,6 +59,41 @@ But such blame https://www.reddit.com/r/cpp/comments/juiudg/comment/gce8yuz/?utm
 - [Native Debug](https://marketplace.visualstudio.com/items?itemName=webfreak.debug) extension (optional, for VS Code debugger integration)
 - GDB (`sudo apt install gdb`)
 
+## Installing U++
+
+U++ is **not** available via winget, Homebrew, or apt. Download it directly from [ultimatepp.org](https://www.ultimatepp.org/www$uppweb$download$en-us.html).
+
+### Linux
+
+```bash
+cd /tmp
+wget https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz
+tar xf upp-posix-18608.tar.xz
+cd upp
+./install
+sudo cp umk /usr/local/bin/
+```
+
+The `./install` script resolves dependencies and builds `theide` and `umk`. After installation, `umk` is available on `$PATH`.
+
+### macOS
+
+Requires Xcode Command Line Tools (`xcode-select --install`).
+
+```bash
+cd /tmp
+curl -L https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz -o upp-posix.tar.xz
+tar xf upp-posix.tar.xz
+cd upp
+./install
+```
+
+The install script will install Homebrew and openssl if needed.
+
+### Windows
+
+Download the `.7z` archive from the [download page](https://www.ultimatepp.org/www$uppweb$download$en-us.html) and extract it with [7-Zip](https://www.7-zip.org/). The `umk.exe` binary is inside the extracted directory — add it to your `$PATH`.
+
 ## Quick Start
 
 1. Open a workspace containing your U++ project
