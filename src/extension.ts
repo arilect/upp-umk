@@ -798,14 +798,15 @@ function checkUppInstallation(): void {
 
   if (isWindows) {
     installSteps = `
-      <p>To use this extension, install U++ with:</p>
-      <div class="cmd">winget install UltimatePP.UPP</div>`;
-    installScript = 'winget install UltimatePP.UPP';
+      <p>U++ is not available via winget. The archive will be downloaded from ultimatepp.org and extracted:</p>`;
+    installScript = `cd ~ && powershell -Command "Invoke-WebRequest -Uri 'https://www.ultimatepp.org/downloads/upp-win-18608.7z' -OutFile 'upp-win.7z'" && 7z x upp-win.7z -o"upp" && del upp-win.7z`;
   } else if (isMac) {
     installSteps = `
-      <p>To use this extension, install U++ with:</p>
-      <div class="cmd">brew install ultimatepp</div>`;
-    installScript = 'brew install ultimatepp';
+      <p>U++ is not available via Homebrew. The tarball will be downloaded from ultimatepp.org, extracted, and built from source:</p>
+      <div class="note">
+        <strong>Note:</strong> This requires Xcode Command Line Tools. If not installed, the script will prompt you to install them.
+      </div>`;
+    installScript = `cd /tmp && curl -sL https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz -o upp-posix.tar.xz && tar xf upp-posix.tar.xz && cd upp && ./install`;
   } else {
     installSteps = `
       <p>U++ is not available via apt. To install on Linux, the tarball will be downloaded from ultimatepp.org, extracted, and built from source:</p>`;
