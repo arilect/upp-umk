@@ -808,12 +808,8 @@ function checkUppInstallation(): void {
     installScript = 'brew install ultimatepp';
   } else {
     installSteps = `
-      <p>U++ is not available via apt. To install on Linux:</p>
-      <ol>
-        <li>Download the POSIX tarball</li>
-        <li>Extract and build from source</li>
-      </ol>`;
-    installScript = `cd /tmp && wget -q https://sourceforge.net/projects/upp/files/latest/download -O upp-posix.tar.xz && tar xf upp-posix.tar.xz && cd upp && ./install && sudo cp umk /usr/local/bin/`;
+      <p>U++ is not available via apt. To install on Linux, the tarball will be downloaded from ultimatepp.org, extracted, and built from source:</p>`;
+    installScript = `cd /tmp && wget -q https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz && tar xf upp-posix-18608.tar.xz && cd upp && ./install && sudo cp umk /usr/local/bin/`;
   }
 
   const panel = vscode.window.createWebviewPanel(
