@@ -790,13 +790,30 @@ function checkUppInstallation(): void {
   outputChannel?.appendLine('UPP: No U++ installation found.');
 
   const platform = process.platform;
-  let installCmd = '';
-  if (platform === 'win32') {
-    installCmd = 'winget install UltimatePP.UPP';
-  } else if (platform === 'darwin') {
-    installCmd = 'brew install ultimatepp';
+  const isWindows = platform === 'win32';
+  const isMac = platform === 'darwin';
+
+  let installSteps = '';
+  let installScript = '';
+
+  if (isWindows) {
+    installSteps = `
+      <p>To use this extension, install U++ with:</p>
+      <div class="cmd">winget install UltimatePP.UPP</div>`;
+    installScript = 'winget install UltimatePP.UPP';
+  } else if (isMac) {
+    installSteps = `
+      <p>To use this extension, install U++ with:</p>
+      <div class="cmd">brew install ultimatepp</div>`;
+    installScript = 'brew install ultimatepp';
   } else {
-    installCmd = 'sudo apt install ultimatepp';
+    installSteps = `
+      <p>U++ is not available via apt. To install on Linux:</p>
+      <ol>
+        <li>Download the POSIX tarball</li>
+        <li>Extract and build from source</li>
+      </ol>`;
+    installScript = `cd /tmp && wget -q https://sourceforge.net/projects/upp/files/latest/download -O upp-posix.tar.xz && tar xf upp-posix.tar.xz && cd upp && ./install && sudo cp umk /usr/local/bin/`;
   }
 
   const panel = vscode.window.createWebviewPanel(
@@ -810,19 +827,26 @@ function checkUppInstallation(): void {
     body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:20px;line-height:1.6;}
     h2{color:#f44;margin-bottom:8px;}
     p{margin:8px 0;}
+    ol{margin:8px 0 8px 20px;}
+    li{margin:4px 0;}
     code{background:var(--vscode-input-background);padding:2px 6px;border-radius:3px;font-size:0.9em;}
-    .cmd{background:var(--vscode-input-background);padding:10px 14px;border-radius:4px;margin:12px 0;font-family:var(--vscode-editor-font-family,monospace);font-size:0.95em;word-break:break-all;}
+    .cmd{background:var(--vscode-input-background);padding:10px 14px;border-radius:4px;margin:12px 0;font-family:var(--vscode-editor-font-family,monospace);font-size:0.95em;word-break:break-all;white-space:pre-wrap;}
     button{padding:8px 20px;border:none;border-radius:4px;cursor:pointer;font-size:0.95em;margin:4px 4px 4px 0;}
     .btn-primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);}
     .btn-primary:hover{background:var(--vscode-button-hoverBackground);}
     .btn-secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);}
     .btn-secondary:hover{background:var(--vscode-button-secondaryHoverBackground);}
     .hint{font-size:0.85em;opacity:0.6;margin-top:12px;}
+    .note{background:var(--vscode-input-background);padding:10px 14px;border-radius:4px;margin:12px 0;border-left:3px solid var(--vscode-textLink-foreground);}
   </style></head><body>
     <h2>U++ Installation Not Found</h2>
     <p>The extension was not able to find a U++ installation on this system.</p>
-    <p>To use this extension, you need U++ installed. You can install it with this command:</p>
-    <div class="cmd" id="cmdText">${escHtml(installCmd)}</div>
+    ${installSteps}
+    ${!isWindows && !isMac ? `
+    <div class="note">
+      <strong>Note:</strong> This will download ~39 MB and build U++ from source.
+      The build takes a few minutes. After installation, restart VS Code.
+    </div>` : ''}
     <br/>
     <button class="btn-primary" id="btnInstall">Install U++</button>
     <button class="btn-secondary" id="btnSettings">Configure Manually</button>
@@ -847,9 +871,9 @@ function checkUppInstallation(): void {
     if (msg.type === 'install') {
       const terminal = vscode.window.createTerminal('UPP: Install');
       terminal.show();
-      terminal.sendText(installCmd);
-      outputChannel?.appendLine(`UPP: Running install command: ${installCmd}`);
-      panel.webview.postMessage({ type: 'status', text: 'Installation started. Restart VS Code when done.' });
+      terminal.sendText(installScript);
+      outputChannel?.appendLine(`UPP: Running install: ${installScript}`);
+      panel.webview.postMessage({ type: 'status', text: 'Installation started. This may take a few minutes. Restart VS Code when done.' });
     } else if (msg.type === 'settings') {
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
     } else if (msg.type === 'learn') {
