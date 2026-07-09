@@ -56,6 +56,14 @@ export function setDebugTerminal(t: vscode.Terminal | undefined) { debugTerminal
 // ─── Status Bar ──────────────────────────────────────────────────────────────
 
 export function updateStatusBar() {
+  if (!activeInstallation) {
+    statusBarItem.text = '$(warning) UPP: No installation found';
+    statusBarItem.tooltip = 'Click to configure U++ installation';
+    statusBarItem.command = 'upp.selectInstallation';
+    statusBarItem.show();
+    return;
+  }
+
   if (activeAssembly && activeMainPackage) {
     const anim = isRunning ? '~spin ' : '';
     statusBarItem.text = `$(${anim}tools) ${activeAssembly.name} / ${path.basename(activeMainPackage)}`;
@@ -64,9 +72,11 @@ export function updateStatusBar() {
       `.var: ${path.basename(activeAssembly.filePath)}\n` +
       `Main package: ${activeMainPackage}\n` +
       `Click to change`;
+    statusBarItem.command = 'upp.selectAssembly';
   } else {
     statusBarItem.text = `$(tools) UPP: no assembly`;
     statusBarItem.tooltip = 'Click to select a U++ assembly';
+    statusBarItem.command = 'upp.selectAssembly';
   }
   statusBarItem.show();
   const cfg = vscode.workspace.getConfiguration('upp');

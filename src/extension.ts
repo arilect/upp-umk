@@ -758,6 +758,8 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Health check: notify user if no U++ installation is found
+  checkUppInstallation(context).catch(err => console.warn('UPP: Installation check failed:', err));
 }
 
 export function deactivate() {
@@ -778,4 +780,63 @@ export function deactivate() {
 
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ─── Installation Health Check ────────────────────────────────────────────────
+
+async function checkUppInstallation(context: vscode.ExtensionContext): Promise<void> {
+  if (activeInstallation) return;
+
+  const choice = await vscode.window.showWarningMessage(
+    'UPP: I was not able to find U++ installation.',
+    'Install U++',
+    'Configure Manually',
+    'Learn More'
+  );
+
+  if (choice === 'Install U++') {
+    await offerAutomaticInstallation();
+  } else if (choice === 'Configure Manually') {
+    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
+  } else if (choice === 'Learn More') {
+    vscode.env.openExternal(vscode.Uri.parse('https://www.ultimatepp.org/www$uppweb$download$en-us.html'));
+  }
+}
+
+async function offerAutomaticInstallation(): Promise<void> {
+  const platform = process.platform;
+  let installCommand = '';
+  let platformName = '';
+
+  if (platform === 'win32') {
+    installCommand = 'winget install UltimatePP.UPP';
+    platformName = 'Windows';
+  } else if (platform === 'darwin') {
+    installCommand = 'brew install ultimatepp';
+    platformName = 'macOS';
+  } else {
+    installCommand = 'sudo apt install ultimatepp';
+    platformName = 'Linux';
+  }
+
+  const choice = await vscode.window.showInformationMessage(
+    `UPP: Would you like me to install U++ on ${platformName} using: ${installCommand}?`,
+    'Install',
+    'Cancel'
+  );
+
+  if (choice === 'Install') {
+    const terminal = vscode.window.createTerminal('UPP: Install');
+    terminal.show();
+    terminal.sendText(installCommand);
+
+    vscode.window.showInformationMessage(
+      'UPP: Installation started. Please restart VS Code after installation completes.',
+      'Restart Now'
+    ).then(selection => {
+      if (selection === 'Restart Now') {
+        vscode.commands.executeCommand('workbench.action.reloadWindow');
+      }
+    });
+  }
 }
