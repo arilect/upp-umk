@@ -759,7 +759,12 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Health check: notify user if no U++ installation is found
-  checkUppInstallation(context).catch(err => console.warn('UPP: Installation check failed:', err));
+  // Delay to ensure VS Code UI is fully loaded (notifications during activate get swallowed)
+  setTimeout(() => {
+    checkUppInstallation(context).catch(err => {
+      outputChannel?.appendLine(`UPP: Installation check failed: ${err.message}`);
+    });
+  }, 1500);
 }
 
 export function deactivate() {
@@ -786,6 +791,8 @@ function escHtml(s: string): string {
 
 async function checkUppInstallation(context: vscode.ExtensionContext): Promise<void> {
   if (activeInstallation) return;
+
+  outputChannel?.appendLine('UPP: No U++ installation found.');
 
   const choice = await vscode.window.showWarningMessage(
     'UPP: I was not able to find U++ installation.',
