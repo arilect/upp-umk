@@ -30,7 +30,7 @@ async function saveRunOptions(opts: RunOptions): Promise<void> {
   await cfg.update('runCwd', opts.runCwd, vscode.ConfigurationTarget.Workspace);
   await cfg.update('runEnv', opts.runEnv, vscode.ConfigurationTarget.Workspace);
   await cfg.update('terminalApp', opts.terminalApp || '', vscode.ConfigurationTarget.Workspace);
-  await cfg.update('useIntegratedTerminal', opts.useIntegratedTerminal, vscode.ConfigurationTarget.Workspace);
+  await cfg.update('useIntegratedTerminal', opts.useIntegratedTerminal, vscode.ConfigurationTarget.Global);
 }
 
 export function showRunOptionsPanel() {

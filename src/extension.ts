@@ -20,7 +20,7 @@ import {
   restoreState, updateStatusBar, getActiveState,
 } from './state';
 import { UppSidebarProvider } from './sidebarProvider';
-import { resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
+import { resolveOutputDir, resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode, setOutput, setLinkMode } from './buildCommand';
 import { syncWorkspaces, getWorkspaceFilePath, ensureWorkspaceFile } from './workspace';
 import { doAction, ensureActiveAssembly, cleanBuildOutput } from './actions';
@@ -157,7 +157,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   if (activeAssembly) {
     setTimeout(() => {
-      sp.refresh(activeInstallation, activeAssembly, activeMainPackage, false, activePackageDescription, activePackageUppFile, false, undefined, undefined, undefined);
+      const outputDir = resolveOutputDir(activeInstallation, activeAssembly, activeMainPackage);
+      const debugOutputDir = resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage);
+      sp.refresh(activeInstallation, activeAssembly, activeMainPackage, false, activePackageDescription, activePackageUppFile, false, outputDir, debugOutputDir, undefined);
     }, 500);
   }
 
