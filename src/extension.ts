@@ -38,6 +38,7 @@ import { showCppStandardPanel } from './cppStandardPanel';
 import { showIntellisensePanel } from './intellisensePanel';
 import { showBuildEditPanel } from './buildEditPanel';
 import { showBuildMethodPanel, refreshBuildMethodPanel } from './buildMethodPanel';
+import { showUppHubPanel } from './uppHubPanel';
 import { findBuildMethods } from './assemblyParser';
 import { scanInstallations, UppInstallation } from './installations';
 
@@ -650,6 +651,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.editCppStandard', () => showCppStandardPanel()),
     vscode.commands.registerCommand('upp.openIntellisensePanel', () => showIntellisensePanel()),
     vscode.commands.registerCommand('upp.showDebugAdapterPanel', () => showDebugAdapterPanel()),
+    vscode.commands.registerCommand('upp.openUppHub', () => showUppHubPanel(activeAssembly)),
     vscode.commands.registerCommand('upp.setCppStandard', async (value: string) => {
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('cppStandard', value, vscode.ConfigurationTarget.Workspace);

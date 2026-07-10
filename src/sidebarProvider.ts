@@ -568,6 +568,11 @@ document.addEventListener('DOMContentLoaded', () => {
       <button class="btn btn--accent" onclick="${this._cmd('upp.newPackage')}">New Package</button>
       <button class="btn btn--secondary" onclick="${this._cmd('upp.editInstallations')}">Source Trees</button>
       ${isWindows ? row('Source Tree', installationLabel, 'upp.selectInstallation') : ''}
+      ${this.assembly?.uppHub ? (() => {
+        const hubDir = this.assembly!.uppHub!;
+        const count = fs.existsSync(hubDir) ? fs.readdirSync(hubDir).filter(e => fs.statSync(path.join(hubDir, e)).isDirectory() && fs.existsSync(path.join(hubDir, e, '.git'))).length : 0;
+        return row('UppHub', count > 0 ? count + ' package(s)' : hubDir, 'upp.openUppHub');
+      })() : row('UppHub', 'not configured', 'upp.openUppHub')}
     </div>
   </div>
 
@@ -712,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ${separator}
 
   ${row('Output Dir', this.outputDirPath || '(not resolved)', 'upp.openOutputDir')}
-  ${row('Show Log', 'package log', 'upp.showLogs')}
+      ${row('Show Log', 'package log', 'upp.showLogs')}
 
   ${separator}
 

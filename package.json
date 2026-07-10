@@ -54,6 +54,7 @@
     "onCommand:upp.showLogs",
     "onCommand:upp.openOutputDir",
     "onCommand:upp.openDebugOutputDir",
+    "onCommand:upp.openUppHub",
     "workspaceContains:**/*.var"
   ],
   "main": "./out/extension.js",
@@ -150,6 +151,12 @@
         "title": "Debug Adapter Setup",
         "category": "UPP",
         "icon": "$(debug-alt)"
+      },
+      {
+        "command": "upp.openUppHub",
+        "title": "UppHub Package Manager",
+        "category": "UPP",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "upp.stopRun",
@@ -453,6 +460,11 @@
           "default": false,
           "description": "Mirror umk -u (use_target): store all target files in the same directory, omitting the <package> segment and the 'Main' flag from the variant name. Path becomes <out>/[<assembly>/]<variant>/<binary>."
         },
+        "upp.uppHub.autoInstall": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically install missing UppHub dependencies before building."
+        },
         "upp.debuggerPath": {
           "type": "string",
           "default": "",
@@ -531,6 +543,10 @@
       {
         "command": "upp.showLogs",
         "key": "alt+l"
+      },
+      {
+        "command": "upp.openUppHub",
+        "key": "ctrl+shift+u"
       }
     ],
     "menus": {

@@ -9,6 +9,7 @@ export interface Assembly {
   filePath: string;   // full path to the .var file (~/.upp/theide/myapp.var)
   nests: string[];    // nest directories from the UPP = "..." line
   output: string;     // OUTPUT = "..." value (build output directory)
+  uppHub?: string;    // UPPHUB = "..." value (path to UppHub directory)
 }
 
 /**
@@ -27,6 +28,7 @@ export function parseAssembly(varPath: string): Assembly {
   const name = path.basename(varPath, '.var');
   const nests: string[] = [];
   let output = '';
+  let uppHub = '';
 
   if (!fs.existsSync(varPath)) {
     return { name, filePath: varPath, nests, output };
@@ -46,10 +48,80 @@ export function parseAssembly(varPath: string): Assembly {
       );
     } else if (key === 'OUTPUT') {
       output = value.trim();
+    } else if (key === 'UPPHUB') {
+      uppHub = value.trim();
     }
   }
 
-  return { name, filePath: varPath, nests, output };
+  return { name, filePath: varPath, nests, output, uppHub: uppHub || undefined };
+}
+
+/**
+ * Update the UPPHUB key in a .var file. Creates the key if missing.
+ */
+export function setAssemblyUpHub(varPath: string, hubDir: string): void {
+  let content = fs.existsSync(varPath) ? fs.readFileSync(varPath, 'utf8') : '';
+  const kvPattern = /^(\w+)\s*=\s*"([^"]*)"\s*;/gm;
+  const keys = new Map<string, string>();
+  let m: RegExpExecArray | null;
+  while ((m = kvPattern.exec(content)) !== null) {
+    keys.set(m[1], m[0]);
+  }
+  const newLine = `UPPHUB = "${hubDir}";`;
+  if (keys.has('UPPHUB')) {
+    content = content.replace(keys.get('UPPHUB')!, newLine);
+  } else {
+    content = newLine + '\n' + content;
+  }
+  fs.writeFileSync(varPath, content, 'utf8');
+}
+
+/**
+ * Add a directory to the UPP nest list in a .var file (if not already present).
+ */
+export function addNestToAssembly(varPath: string, nestDir: string): void {
+  let content = fs.existsSync(varPath) ? fs.readFileSync(varPath, 'utf8') : '';
+  const kvPattern = /^(\w+)\s*=\s*"([^"]*)"\s*;/gm;
+  const keys = new Map<string, string>();
+  let m: RegExpExecArray | null;
+  while ((m = kvPattern.exec(content)) !== null) {
+    keys.set(m[1], m[0]);
+  }
+  const existing = keys.get('UPP') ?? 'UPP = "";';
+  const valMatch = existing.match(/"([^"]*)"/);
+  const current = valMatch ? valMatch[1] : '';
+  const nests = current.split(';').map(s => s.trim()).filter(Boolean);
+  if (!nests.includes(nestDir)) {
+    nests.push(nestDir);
+    const newLine = `UPP = "${nests.join(';')};";`;
+    content = content.replace(existing, newLine);
+    fs.writeFileSync(varPath, content, 'utf8');
+  }
+}
+
+/**
+ * Remove a directory from the UPP nest list in a .var file.
+ */
+export function removeNestFromAssembly(varPath: string, nestDir: string): void {
+  let content = fs.existsSync(varPath) ? fs.readFileSync(varPath, 'utf8') : '';
+  const kvPattern = /^(\w+)\s*=\s*"([^"]*)"\s*;/gm;
+  const keys = new Map<string, string>();
+  let m: RegExpExecArray | null;
+  while ((m = kvPattern.exec(content)) !== null) {
+    keys.set(m[1], m[0]);
+  }
+  const existing = keys.get('UPP');
+  if (!existing) return;
+  const valMatch = existing.match(/"([^"]*)"/);
+  const current = valMatch ? valMatch[1] : '';
+  const nests = current.split(';').map(s => s.trim()).filter(Boolean);
+  const idx = nests.indexOf(nestDir);
+  if (idx >= 0) {
+    nests.splice(idx, 1);
+    const newLine = `UPP = "${nests.join(';')};";`;
+    content = content.replace(existing, newLine);
+    fs.writeFileSync(varPath, content, 'utf8');
+  }
 }
 
 /**

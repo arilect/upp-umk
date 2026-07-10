@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:0;overflow:hidden;display:flex;flex-direction:column;height:100vh;}
+.toolbar{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--vscode-widget-border);flex-wrap:wrap;align-items:center;}
+.toolbar input[type="text"]{flex:1;min-width:120px;padding:4px 8px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border);border-radius:2px;font-size:var(--vscode-font-size);}
+.toolbar select{padding:4px 8px;background:var(--vscode-dropdown-background);color:var(--vscode-dropdown-foreground);border:1px solid var(--vscode-dropdown-border);border-radius:2px;font-size:var(--vscode-font-size);}
+.toolbar button{padding:4px 12px;border:1px solid var(--vscode-button-border);background:var(--vscode-button-background);color:var(--vscode-button-foreground);cursor:pointer;border-radius:2px;font-size:var(--vscode-font-size);}
+.toolbar button:hover{background:var(--vscode-button-hoverBackground);}
+.toolbar button.primary{background:var(--vscode-focusBorder);border-color:var(--vscode-focusBorder);}
+.content{display:flex;flex:1;overflow:hidden;}
+.list{width:55%;overflow-y:auto;border-right:1px solid var(--vscode-widget-border);}
+.detail{width:45%;overflow-y:auto;padding:16px;}
+.nest-row{display:flex;align-items:center;padding:6px 12px;cursor:pointer;border-bottom:1px solid var(--vscode-widget-border);gap:8px;}
+.nest-row:hover{background:var(--vscode-list-hoverBackground);}
+.nest-row.selected{background:var(--vscode-list-activeSelectionBackground);color:var(--vscode-list-activeSelectionForeground);}
+.nest-name{font-weight:bold;flex:1;}
+.nest-cat{font-size:0.85em;opacity:0.7;min-width:80px;}
+.nest-status{font-size:0.8em;padding:1px 6px;border-radius:8px;}
+.status-stable{background:rgba(0,200,0,0.15);color:#4caf50;}
+.status-experimental{background:rgba(255,165,0,0.15);color:#ff9800;}
+.status-rolling{background:rgba(33,150,243,0.15);color:#2196f3;}
+.status-broken{background:rgba(244,67,54,0.15);color:#f44336;}
+.badge{font-size:0.75em;padding:1px 6px;border-radius:8px;background:rgba(0,200,0,0.2);color:#4caf50;margin-left:4px;}
+.detail h2{margin-bottom:8px;}
+.detail .meta{margin-bottom:12px;font-size:0.9em;opacity:0.7;}
+.detail .desc{margin-bottom:12px;line-height:1.5;}
+.detail .pkgs{margin-bottom:12px;}
+.detail .pkgs span{display:inline-block;padding:2px 8px;margin:2px;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);border-radius:4px;font-size:0.85em;}
+.detail .actions{display:flex;gap:8px;margin-top:16px;}
+.detail .actions button{padding:6px 16px;border:1px solid var(--vscode-button-border);background:var(--vscode-button-background);color:var(--vscode-button-foreground);cursor:pointer;border-radius:2px;}
+.detail .actions button:hover{background:var(--vscode-button-hoverBackground);}
+.detail .actions button.install{background:var(--vscode-ansiGreen);border-color:var(--vscode-ansiGreen);color:#000;}
+.detail .actions button.uninstall{background:var(--vscode-ansiRed);border-color:var(--vscode-ansiRed);color:#fff;}
+.detail .readme{margin-top:16px;padding:12px;background:var(--vscode-textBlockQuote-background);border-left:3px solid var(--vscode-textLink-foreground);white-space:pre-wrap;font-size:0.9em;max-height:300px;overflow-y:auto;}
+.empty{padding:40px;text-align:center;opacity:0.5;}
+.hub-dir{padding:6px 12px;border-top:1px solid var(--vscode-widget-border);font-size:0.85em;opacity:0.6;}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <input type="text" id="search" placeholder="Search packages..." />
+  <select id="categoryFilter"><option value="">All categories</option></select>
+  <select id="statusFilter">
+    <option value="">All statuses</option>
+    <option value="stable">Stable</option>
+    <option value="experimental">Experimental</option>
+    <option value="rolling">Rolling</option>
+  </select>
+  <button id="btnUpdateAll">Update All</button>
+  <button id="btnInstallAll" class="primary">Install Missing</button>
+</div>
+<div class="content">
+  <div class="list" id="nestList"></div>
+  <div class="detail" id="nestDetail"><div class="empty">Select a package from the list</div></div>
+</div>
+<div class="hub-dir" id="hubDir">Hub: (no assembly selected)</div>
+
+<script>
+const vscode = acquireVsCodeApi();
+let state = { nests: [], installed: [], hubDir: '', selected: null, assembly: null, search: '', category: '', status: '' };
+
+window.addEventListener('message', function(e) {
+  var msg = e.data;
+  if (msg.type === 'catalog') {
+    state.nests = msg.nests || [];
+    state.installed = msg.installed || [];
+    state.hubDir = msg.hubDir || '';
+    state.assembly = msg.assembly || state.assembly;
+    state.selected = null;
+    populateCategories();
+    render();
+  }
+});
+
+function populateCategories() {
+  var cats = {};
+  state.nests.forEach(function(n) { if (n.category) cats[n.category] = true; });
+  var sel = document.getElementById('categoryFilter');
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">All categories</option>';
+  Object.keys(cats).sort().forEach(function(c) {
+    var opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    if (c === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function getFiltered() {
+  return state.nests.filter(function(n) {
+    if (state.category && n.category !== state.category) return false;
+    if (state.status && n.status !== state.status) return false;
+    if (state.search) {
+      var q = state.search.toLowerCase();
+      if (n.name.toLowerCase().indexOf(q) < 0 && n.description.toLowerCase().indexOf(q) < 0 && n.category.toLowerCase().indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+
+function render() {
+  var filtered = getFiltered();
+  var list = document.getElementById('nestList');
+  list.innerHTML = '';
+  filtered.forEach(function(n) {
+    var div = document.createElement('div');
+    div.className = 'nest-row' + (state.selected === n.name ? ' selected' : '');
+    var inst = state.installed.indexOf(n.name) >= 0;
+    div.innerHTML = '<span class="nest-name">' + esc(n.name) + (inst ? '<span class="badge">installed</span>' : '') + '</span>' +
+      '<span class="nest-cat">' + esc(n.category) + '</span>' +
+      '<span class="nest-status status-' + n.status + '">' + esc(n.status) + '</span>';
+    div.onclick = function() { state.selected = n.name; render(); renderDetail(n); };
+    list.appendChild(div);
+  });
+  document.getElementById('hubDir').textContent = 'Hub: ' + (state.hubDir || '(no assembly selected)');
+}
+
+function renderDetail(n) {
+  var inst = state.installed.indexOf(n.name) >= 0;
+  var html = '<h2>' + esc(n.name) + '</h2>' +
+    '<div class="meta">' + esc(n.category) + ' &middot; ' + esc(n.status) + '</div>' +
+    '<div class="desc">' + esc(n.description) + '</div>' +
+    '<div class="pkgs">' + n.packages.map(function(p) { return '<span>' + esc(p) + '</span>'; }).join('') + '</div>';
+  if (n.repo) html += '<div class="meta"><a href="#" onclick="vscode.postMessage({type:\'openUrl\',url:\'' + esc(n.repo) + '\'});return false;">Repository</a></div>';
+  if (n.readme) html += '<div class="meta"><a href="#" onclick="vscode.postMessage({type:\'openUrl\',url:\'' + esc(n.readme) + '\'});return false;">README</a></div>';
+  html += '<div class="actions">';
+  if (inst) {
+    html += '<button class="uninstall" onclick="doUninstall(\'' + esc(n.name) + '\')">Uninstall</button>';
+    html += '<button onclick="doUpdate(\'' + esc(n.name) + '\')">Update</button>';
+  } else {
+    html += '<button class="install" onclick="doInstall(' + esc(JSON.stringify(JSON.stringify(n))) + ')">Install</button>';
+  }
+  html += '</div>';
+  document.getElementById('nestDetail').innerHTML = html;
+}
+
+function doInstall(nestJson) {
+  var nest = JSON.parse(nestJson);
+  vscode.postMessage({ type: 'install', nest: nest, hubDir: state.hubDir });
+}
+function doUninstall(name) {
+  vscode.postMessage({ type: 'uninstall', name: name, hubDir: state.hubDir });
+}
+function doUpdate(name) {
+  vscode.postMessage({ type: 'update', name: name, hubDir: state.hubDir });
+}
+
+document.getElementById('search').addEventListener('input', function(e) { state.search = e.target.value; render(); });
+document.getElementById('categoryFilter').addEventListener('change', function(e) { state.category = e.target.value; render(); });
+document.getElementById('statusFilter').addEventListener('change', function(e) { state.status = e.target.value; render(); });
+document.getElementById('btnUpdateAll').addEventListener('click', function() { vscode.postMessage({ type: 'updateAll', hubDir: state.hubDir }); });
+document.getElementById('btnInstallAll').addEventListener('click', function() {
+  var notInstalled = state.nests.filter(function(n) { return state.installed.indexOf(n.name) < 0; }).map(function(n) { return n.name; });
+  if (notInstalled.length === 0) { alert('All packages already installed.'); return; }
+  vscode.postMessage({ type: 'installAll', hubDir: state.hubDir, names: notInstalled });
+});
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
