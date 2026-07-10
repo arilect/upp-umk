@@ -177,6 +177,8 @@ Click **+ New Assembly** at the bottom of the assembly list to create a new asse
 | `upp.compileCommandsMode` | `"auto"` | `"manual"` or `"auto"` — how compile_commands.json files are generated |
 | `upp.generateCompileCommands` | `""` | Auto-generated umk command for compile_commands.json |
 | `upp.outputConsole` | `"auto"` | When to open output panel: `"always"`, `"auto"`, `"never"` |
+| `upp.terminalApp` | `""` | External terminal emulator to run programs in. Empty = auto-detect. Ignored when the integrated terminal is used |
+| `upp.useIntegratedTerminal` | `false` | Run programs in VS Code's integrated terminal. Auto-enabled on headless/remote (no display). Best for code-server / VPS |
 | `upp.restartClangdAfterGenerate` | `true` | Restart clangd after generating compile_commands.json |
 | `upp.clangdSuppress` | `["ambiguous_reference", ...]` | Clangd diagnostic codes to suppress for U++ framework headers |
 | `upp.autoPackageSwitchWorkspace` | `true` | Auto-switch workspace when selecting a package |

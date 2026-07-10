@@ -7,6 +7,7 @@ interface RunOptions {
   runCwd: string;
   runEnv: string;
   terminalApp: string;
+  useIntegratedTerminal: boolean;
 }
 
 function readRunOptions(): RunOptions {
@@ -18,6 +19,7 @@ function readRunOptions(): RunOptions {
     runCwd: cfg.get('runCwd', ''),
     runEnv: cfg.get('runEnv', ''),
     terminalApp: custom || getDefaultTerminal(),
+    useIntegratedTerminal: cfg.get('useIntegratedTerminal', false),
   };
 }
 
@@ -28,6 +30,7 @@ async function saveRunOptions(opts: RunOptions): Promise<void> {
   await cfg.update('runCwd', opts.runCwd, vscode.ConfigurationTarget.Workspace);
   await cfg.update('runEnv', opts.runEnv, vscode.ConfigurationTarget.Workspace);
   await cfg.update('terminalApp', opts.terminalApp || '', vscode.ConfigurationTarget.Workspace);
+  await cfg.update('useIntegratedTerminal', opts.useIntegratedTerminal, vscode.ConfigurationTarget.Workspace);
 }
 
 export function showRunOptionsPanel() {
@@ -126,9 +129,16 @@ function buildHtml(opts: RunOptions): string {
 
   <div class="section">Terminal</div>
   <div class="field">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+      <input type="checkbox" id="useIntegrated" ${opts.useIntegratedTerminal ? 'checked' : ''} />
+      Use VS Code integrated terminal
+    </label>
+    <div class="hint">Run programs inside VS Code's terminal instead of an external emulator. Recommended for remote / headless (code-server, VPS). Auto-enabled when no display server is available.</div>
+  </div>
+  <div class="field">
     <label for="terminalAppInput">Terminal Emulator</label>
-    <input type="text" id="terminalAppInput" value="${isCustom ? esc(opts.terminalApp) : ''}" class="mono" placeholder="auto: ${esc(opts.terminalApp)}" />
-    <div class="hint">Leave empty to auto-detect (${esc(opts.terminalApp)}). Enter a name to override (e.g. kitty, alacritty, foot; on Windows: wt, pwsh, powershell).</div>
+    <input type="text" id="terminalAppInput" value="${isCustom ? esc(opts.terminalApp) : ''}" class="mono" placeholder="auto: ${esc(opts.terminalApp)}" ${opts.useIntegratedTerminal ? 'disabled' : ''} />
+    <div class="hint">Leave empty to auto-detect (${esc(opts.terminalApp)}). Enter a name to override (e.g. kitty, alacritty, foot; on Windows: wt, pwsh, powershell). Ignored when the integrated terminal is used.</div>
   </div>
   <div class="field">
     <label for="outputConsole">Open Terminal</label>
@@ -170,6 +180,7 @@ function buildHtml(opts: RunOptions): string {
     const envPairs = ${JSON.stringify(envPairs)};
 
     function save() {
+      const useIntegrated = document.getElementById('useIntegrated').checked;
       vscode.postMessage({
         type: 'save',
         data: {
@@ -177,7 +188,8 @@ function buildHtml(opts: RunOptions): string {
           runArgs: document.getElementById('runArgs').value,
           runCwd: document.getElementById('runCwd').value,
           runEnv: getEnvString(),
-          terminalApp: document.getElementById('terminalAppInput').value,
+          terminalApp: useIntegrated ? '' : document.getElementById('terminalAppInput').value,
+          useIntegratedTerminal: useIntegrated,
         }
       });
     }
@@ -229,6 +241,11 @@ function buildHtml(opts: RunOptions): string {
 
     renderEnv();
 
+    document.getElementById('useIntegrated').addEventListener('change', e => {
+      const input = document.getElementById('terminalAppInput');
+      input.disabled = (e.target as HTMLInputElement).checked;
+      save();
+    });
     document.getElementById('terminalAppInput').addEventListener('input', save);
     document.getElementById('outputConsole').addEventListener('change', save);
     document.getElementById('runArgs').addEventListener('input', save);

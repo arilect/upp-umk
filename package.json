@@ -363,7 +363,12 @@
         "upp.terminalApp": {
           "type": "string",
           "default": "",
-          "description": "Terminal emulator to run programs in. Leave empty to auto-detect ($TERMINAL, $TERM_PROGRAM, XDG settings on Linux; %COMSPEC% on Windows)."
+          "description": "Terminal emulator to run programs in. Leave empty to auto-detect ($TERMINAL, $TERM_PROGRAM, XDG settings on Linux; %COMSPEC% on Windows). Ignored when the integrated terminal is used."
+        },
+        "upp.useIntegratedTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run programs in VS Code's integrated terminal instead of an external emulator. Auto-enabled on headless/remote (no display server). Best for code-server / VPS. Overrides upp.terminalApp."
         },
         "upp.outPath": {
           "type": "string",

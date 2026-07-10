@@ -130,14 +130,48 @@ export function getDefaultTerminal(): string {
   return 'xterm';
 }
 
+/**
+ * Whether to run programs in VS Code's integrated terminal instead of an
+ * external X11 emulator. True when the user opts in, or (when unset) when
+ * running headless / remote where no display server is available.
+ */
+export function shouldUseIntegratedTerminal(cfg: vscode.WorkspaceConfiguration): boolean {
+  const explicit: boolean | undefined = cfg.get('useIntegratedTerminal');
+  if (typeof explicit === 'boolean') return explicit;
+  if (process.platform === 'win32') return false;
+  const hasDisplay = !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+  if (hasDisplay) return false;
+  const tp = (process.env.TERM_PROGRAM || '').toLowerCase();
+  return tp === 'vscode' || tp === 'code-server' || tp === 'vscode-insiders';
+}
+
+/** Check whether a process with the given image/comm name is currently running. */
+function isProcessAlive(binName: string): boolean {
+  const { execSync } = require('child_process');
+  if (process.platform === 'win32') {
+    const out = execSync(
+      `tasklist /FI "IMAGENAME eq ${binName}" /FO CSV /NH`,
+      { encoding: 'utf8', timeout: 3000 }
+    );
+    return out.includes(binName);
+  }
+  try {
+    execSync(`pgrep -x "${binName}"`, { encoding: 'utf8', timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record<string, string>, openTerminal: boolean) {
+  const cfg = vscode.workspace.getConfiguration('upp');
   const term = getDefaultTerminal();
   const mergedEnv: Record<string, string | undefined> = { ...process.env, ...env };
   if (activeInstallation?.path) {
     mergedEnv.UPP = activeInstallation.path;
   }
 
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' || shouldUseIntegratedTerminal(cfg)) {
     // Use VS Code's integrated terminal — avoids all cmd.exe quoting issues
     // and lets the user select/copy output directly.
     const cmdLine = [umkPath, ...args].join(' ');
@@ -153,21 +187,18 @@ function runInTerminal(umkPath: string, args: string[], cwd: string, env: Record
     updateStatusBar();
 
     // Poll for process exit — VS Code terminals don't expose the child process,
-    // so we check if the binary is still running via tasklist.
+    // so we check if the binary is still running via the platform task tool.
     const binName = path.basename(umkPath);
     const poll = setInterval(() => {
       try {
-        const result = require('child_process').execSync(
-          `tasklist /FI "IMAGENAME eq ${binName}" /FO CSV /NH`,
-          { encoding: 'utf8', timeout: 3000 }
-        );
-        if (!result.includes(binName)) {
+        const alive = isProcessAlive(binName);
+        if (!alive) {
           clearInterval(poll);
           setIsRunning(false);
           updateStatusBar();
         }
       } catch {
-        // tasklist failed — assume process exited
+        // query failed — assume process exited
         clearInterval(poll);
         setIsRunning(false);
         updateStatusBar();
