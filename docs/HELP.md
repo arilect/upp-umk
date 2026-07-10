@@ -1,17 +1,21 @@
 # U++ Extension Help
 
-## Installation Health Check
+## Where Do `.var` Files Live?
 
-When the extension starts and cannot find a U++ installation, it automatically opens a webview panel with three options:
+On Linux / macOS, `.var` assembly files are stored in `~/.config/u++/theide/`. The extension scans this directory automatically.
 
-- **Install U++** — runs the platform-specific install command in a terminal:
-  - Linux: downloads the POSIX tarball from ultimatepp.org, extracts, builds from source, copies `umk` to `/usr/local/bin/`
-  - macOS: downloads the POSIX tarball, extracts, runs `./install` (requires Xcode CLI tools)
-  - Windows: downloads the `.7z` archive via PowerShell, extracts with 7z
-- **Configure Manually** — opens the extension settings
-- **Learn More** — opens the U++ download page
+If no `.var` files exist, use the **Source Trees** panel to add source tree paths and create assemblies from there.
 
-The status bar also shows a warning icon with "No installation found" when no U++ installation is detected. Click it to open the source tree configuration.
+### Using the Extension Without `.var` Files
+
+You can create `.var` files manually. The format is:
+
+```
+UPP = "/path/to/uppsrc";
+OUTPUT = "/home/user/.cache/upp.out";
+```
+
+Or use the **Source Trees** panel to add source tree paths and create assemblies from there.
 
 ## Source Trees Panel
 
@@ -119,16 +123,6 @@ The build method defines the compiler and flags. `.bm` files are stored in platf
 - Windows: `%APPDATA%\U++\theide\`
 
 Select a build method via **Build Method > Select Method** in the sidebar.
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| `Ctrl+Shift+B` | Build |
-| `Ctrl+Shift+Q` | Run |
-| `Ctrl+Shift+D` | Debug |
-| `Ctrl+Shift+X` | Stop |
-| `Alt+L` | Show Logs |
 
 ## clangd Integration
 

@@ -61,32 +61,24 @@ But such blame https://www.reddit.com/r/cpp/comments/juiudg/comment/gce8yuz/?utm
 
 ## Installing U++
 
-U++ is **not** available via winget, Homebrew, or apt. Download it directly from [ultimatepp.org](https://www.ultimatepp.org/www$uppweb$download$en-us.html).
+U++ is **not** available via winget, Homebrew, or apt.
+
+ You can download it directly from [ultimatepp.org](https://www.ultimatepp.org/www$uppweb$download$en-us.html) and install manually using instructions.
+
+ Or, this extension will do everything all automatically for you!
 
 ### Linux
 
-```bash
-cd /tmp
-wget https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz
-tar xf upp-posix-18608.tar.xz
-cd upp
-./install
-sudo cp umk /usr/local/bin/
-```
+U++ sources will be installed to `~/upp-stable`. Two options are available:
 
-The `./install` script resolves dependencies and builds `theide` and `umk`. After installation, `umk` is available on `$PATH`.
+**umk only** (no GTK required — works on headless VPS / servers):
+
+
+After installation,the extension should auto-detect `~/upp-stable`.
 
 ### macOS
 
 Requires Xcode Command Line Tools (`xcode-select --install`).
-
-```bash
-cd /tmp
-curl -L https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz -o upp-posix.tar.xz
-tar xf upp-posix.tar.xz
-cd upp
-./install
-```
 
 The install script will install Homebrew and openssl if needed.
 

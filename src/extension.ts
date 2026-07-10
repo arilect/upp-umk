@@ -557,8 +557,14 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
     vscode.commands.registerCommand('upp.openReadme', () => {
-      const readmeUri = vscode.Uri.joinPath(context.extensionUri, 'README.md');
-      vscode.commands.executeCommand('markdown.showPreview', readmeUri);
+      const lower = vscode.Uri.joinPath(context.extensionUri, 'readme.md');
+      const upper = vscode.Uri.joinPath(context.extensionUri, 'README.md');
+      const uri = fs.existsSync(lower.fsPath) ? lower : upper;
+      if (!fs.existsSync(uri.fsPath)) {
+        vscode.window.showErrorMessage(`Cannot find readme. Tried: ${lower.fsPath} and ${upper.fsPath}`);
+        return;
+      }
+      vscode.commands.executeCommand('markdown.showPreview', uri);
     }),
     vscode.commands.registerCommand('upp.openHelp', () => {
       const uri = vscode.Uri.joinPath(context.extensionUri, 'docs', 'HELP.md');
@@ -794,23 +800,55 @@ function checkUppInstallation(): void {
   const isMac = platform === 'darwin';
 
   let installSteps = '';
-  let installScript = '';
+  let installScriptUmk = '';
+  let installScriptFull = '';
+
+  const baseDeps = 'build-essential libx11-dev libxcb1-dev libfreetype-dev libfontconfig1-dev libpng-dev libexpat1-dev libbz2-dev zlib1g-dev pkg-config';
+  const fullDeps = `${baseDeps} libgtk-3-dev`;
+
+  const downloadPart = 'cd ~ && rm -rf upp-stable && wget -q https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz && tar xf upp-posix-18608.tar.xz && mv upp upp-stable && rm upp-posix-18608.tar.xz';
+
+  const cfgDir = '~/.config/u++/theide';
+  const outputDir = '$HOME/.cache/upp.out';
+  const uppRoot = '$HOME/upp-stable';
+  const uppsrcPath = `${uppRoot}/uppsrc`;
+
+  const createConfig = [
+    `mkdir -p ${cfgDir} ${outputDir} ~/MyApps`,
+    // .var files — mirrors what theide Install() creates on first run
+    // Each source nest gets a .var; uppsrc is always appended as last nest
+    `printf 'UPP = "%s";\\nOUTPUT = "%s";\\n' "${uppsrcPath}" "${outputDir}" > ${cfgDir}/upp-stable.var`,
+    `printf 'UPP = "%s/examples;%s";\\nOUTPUT = "%s";\\n' "${uppRoot}" "${uppsrcPath}" "${outputDir}" > ${cfgDir}/examples.var`,
+    `printf 'UPP = "%s/reference;%s";\\nOUTPUT = "%s";\\n' "${uppRoot}" "${uppsrcPath}" "${outputDir}" > ${cfgDir}/reference.var`,
+    `printf 'UPP = "%s/tutorial;%s";\\nOUTPUT = "%s";\\n' "${uppRoot}" "${uppsrcPath}" "${outputDir}" > ${cfgDir}/tutorial.var`,
+    `printf 'UPP = "%s/MyApps;%s";\\nOUTPUT = "%s";\\n' "$HOME" "${uppsrcPath}" "${outputDir}" > ${cfgDir}/MyApps.var`,
+    // .bm files — exact defaults from Builders/Install.cpp (Linux/generic variant)
+    `printf 'BUILDER = "GCC";\\nCOMPILER = "";\\nCOMMON_OPTIONS = "";\\nCOMMON_CPP_OPTIONS = "-std=c++17";\\nCOMMON_C_OPTIONS = "";\\nCOMMON_LINK = "";\\nCOMMON_FLAGS = "";\\nDEBUG_INFO = "2";\\nDEBUG_BLITZ = "1";\\nDEBUG_LINKMODE = "1";\\nDEBUG_OPTIONS = "-O0";\\nDEBUG_FLAGS = "";\\nDEBUG_LINK = "";\\nDEBUG_CUDA = "";\\nRELEASE_BLITZ = "1";\\nRELEASE_LINKMODE = "1";\\nRELEASE_OPTIONS = "-O3 -ffunction-sections -fdata-sections";\\nRELEASE_FLAGS = "";\\nRELEASE_LINK = "-Wl,--gc-sections";\\nRELEASE_CUDA = "";\\nDEBUGGER = "gdb";\\nALLOW_PRECOMPILED_HEADERS = "0";\\nDISABLE_BLITZ = "0";\\nPATH = "";\\nINCLUDE = "";\\nLIB = "";\\nLINKMODE_LOCK = "0";\\n' > ${cfgDir}/GCC.bm`,
+    `printf 'BUILDER = "CLANG";\\nCOMPILER = "clang++";\\nCOMMON_OPTIONS = "";\\nCOMMON_CPP_OPTIONS = "-std=c++17 -Wno-logical-op-parentheses";\\nCOMMON_C_OPTIONS = "";\\nCOMMON_LINK = "";\\nCOMMON_FLAGS = "";\\nDEBUG_INFO = "2";\\nDEBUG_BLITZ = "1";\\nDEBUG_LINKMODE = "1";\\nDEBUG_OPTIONS = "-O0";\\nDEBUG_FLAGS = "";\\nDEBUG_LINK = "";\\nDEBUG_CUDA = "";\\nRELEASE_BLITZ = "1";\\nRELEASE_LINKMODE = "1";\\nRELEASE_OPTIONS = "-O3 -ffunction-sections -fdata-sections";\\nRELEASE_FLAGS = "";\\nRELEASE_LINK = "-Wl,--gc-sections";\\nRELEASE_CUDA = "";\\nDEBUGGER = "gdb";\\nALLOW_PRECOMPILED_HEADERS = "0";\\nDISABLE_BLITZ = "0";\\nPATH = "";\\nINCLUDE = "";\\nLIB = "";\\nLINKMODE_LOCK = "0";\\n' > ${cfgDir}/CLANG.bm`,
+  ];
 
   if (isWindows) {
     installSteps = `
       <p>U++ is not available via winget. The archive will be downloaded from ultimatepp.org and extracted:</p>`;
-    installScript = `cd ~ && powershell -Command "Invoke-WebRequest -Uri 'https://www.ultimatepp.org/downloads/upp-win-18608.7z' -OutFile 'upp-win.7z'" && 7z x upp-win.7z -o"upp" && del upp-win.7z`;
+    installScriptUmk = `cd ~ && powershell -Command "Invoke-WebRequest -Uri 'https://www.ultimatepp.org/downloads/upp-win-18608.7z' -OutFile 'upp-win.7z'" && 7z x upp-win.7z -o"upp" && del upp-win.7z`;
+    installScriptFull = installScriptUmk;
   } else if (isMac) {
     installSteps = `
       <p>U++ is not available via Homebrew. The tarball will be downloaded from ultimatepp.org, extracted, and built from source:</p>
       <div class="note">
         <strong>Note:</strong> This requires Xcode Command Line Tools. If not installed, the script will prompt you to install them.
       </div>`;
-    installScript = `cd /tmp && curl -sL https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz -o upp-posix.tar.xz && tar xf upp-posix.tar.xz && cd upp && ./install`;
+    installScriptUmk = `cd ~ && rm -rf upp-stable && curl -sL https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz -o upp-posix.tar.xz && tar xf upp-posix.tar.xz && mv upp upp-stable && rm upp-posix.tar.xz && cd ~/upp-stable && ./install && mkdir -p ~/.local/bin && cp ~/upp-stable/umk ~/.local/bin/ && ${createConfig.join(' && ')}`;
+    installScriptFull = installScriptUmk;
   } else {
     installSteps = `
-      <p>U++ is not available via apt. To install on Linux, the tarball will be downloaded from ultimatepp.org, extracted, and built from source:</p>`;
-    installScript = `cd /tmp && wget -q https://www.ultimatepp.org/downloads/upp-posix-18608.tar.xz && tar xf upp-posix-18608.tar.xz && cd upp && ./install && sudo cp umk /usr/local/bin/`;
+      <p>U++ is not available via apt. Choose an install option below:</p>
+      <div class="note">
+        <strong>umk only:</strong> Builds just the command-line build tool. No GTK required. Works on headless servers / VPS.<br/>
+        <strong>Full install (umk + theide):</strong> Builds the IDE and build tool. Requires GTK dev libraries.
+      </div>`;
+    installScriptUmk = `sudo apt-get update && sudo apt-get install -y ${baseDeps} && ${downloadPart} && cd ~/upp-stable && ./configure && make -f umkMakefile -j $(nproc) && mkdir -p ~/.local/bin && cp ~/upp-stable/umk ~/.local/bin/ && ${createConfig.join(' && ')}`;
+    installScriptFull = `sudo apt-get update && sudo apt-get install -y ${fullDeps} && ${downloadPart} && cd ~/upp-stable && ./install && mkdir -p ~/.local/bin && cp ~/upp-stable/umk ~/.local/bin/ && ${createConfig.join(' && ')}`;
   }
 
   const panel = vscode.window.createWebviewPanel(
@@ -819,6 +857,8 @@ function checkUppInstallation(): void {
     vscode.ViewColumn.One,
     { enableScripts: true }
   );
+
+  const isLinux = !isWindows && !isMac;
 
   panel.webview.html = `<!DOCTYPE html><html><head><style>
     body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:20px;line-height:1.6;}
@@ -839,22 +879,38 @@ function checkUppInstallation(): void {
     <h2>U++ Installation Not Found</h2>
     <p>The extension was not able to find a U++ installation on this system.</p>
     ${installSteps}
-    ${!isWindows && !isMac ? `
+    ${isLinux ? `
     <div class="note">
-      <strong>Note:</strong> This will download ~39 MB and build U++ from source.
+      <strong>Note:</strong> This will download ~39 MB and build from source.
       The build takes a few minutes. After installation, restart VS Code.
     </div>` : ''}
     <br/>
+    ${isLinux ? `
+    <button class="btn-primary" id="btnInstallUmk">Install umk only</button>
+    <button class="btn-secondary" id="btnInstallFull">Install full U++ (umk + theide)</button>
+    ` : `
     <button class="btn-primary" id="btnInstall">Install U++</button>
+    `}
     <button class="btn-secondary" id="btnSettings">Configure Manually</button>
     <button class="btn-secondary" id="btnLearn">Learn More</button>
     <div id="status" class="hint"></div>
     <script>
       const vscode = acquireVsCodeApi();
+      ${isLinux ? `
+      document.getElementById('btnInstallUmk').addEventListener('click', () => {
+        vscode.postMessage({ type: 'installUmk' });
+        document.getElementById('status').textContent = 'Installing umk (no GTK required)...';
+      });
+      document.getElementById('btnInstallFull').addEventListener('click', () => {
+        vscode.postMessage({ type: 'installFull' });
+        document.getElementById('status').textContent = 'Installing full U++ (umk + theide)...';
+      });
+      ` : `
       document.getElementById('btnInstall').addEventListener('click', () => {
         vscode.postMessage({ type: 'install' });
         document.getElementById('status').textContent = 'Running install command...';
       });
+      `}
       document.getElementById('btnSettings').addEventListener('click', () => {
         vscode.postMessage({ type: 'settings' });
       });
@@ -865,11 +921,23 @@ function checkUppInstallation(): void {
   </body></html>`;
 
   panel.webview.onDidReceiveMessage(async (msg) => {
-    if (msg.type === 'install') {
+    if (msg.type === 'installUmk') {
+      const terminal = vscode.window.createTerminal('UPP: Install umk');
+      terminal.show();
+      terminal.sendText(installScriptUmk);
+      outputChannel?.appendLine(`UPP: Running umk-only install`);
+      panel.webview.postMessage({ type: 'status', text: 'umk install started. This may take a few minutes. Restart VS Code when done.' });
+    } else if (msg.type === 'installFull') {
+      const terminal = vscode.window.createTerminal('UPP: Install full');
+      terminal.show();
+      terminal.sendText(installScriptFull);
+      outputChannel?.appendLine(`UPP: Running full install (umk + theide)`);
+      panel.webview.postMessage({ type: 'status', text: 'Full install started. This may take a few minutes. Restart VS Code when done.' });
+    } else if (msg.type === 'install') {
       const terminal = vscode.window.createTerminal('UPP: Install');
       terminal.show();
-      terminal.sendText(installScript);
-      outputChannel?.appendLine(`UPP: Running install: ${installScript}`);
+      terminal.sendText(isWindows ? installScriptUmk : installScriptFull);
+      outputChannel?.appendLine(`UPP: Running install`);
       panel.webview.postMessage({ type: 'status', text: 'Installation started. This may take a few minutes. Restart VS Code when done.' });
     } else if (msg.type === 'settings') {
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
