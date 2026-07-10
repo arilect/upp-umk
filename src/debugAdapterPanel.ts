@@ -76,8 +76,18 @@ export function showDebugAdapterPanel(): void {
 
   panel.webview.onDidReceiveMessage(async (msg) => {
     if (msg.type === 'install') {
-      vscode.commands.executeCommand('extension.install', msg.extensionId);
-      panel.webview.postMessage({ type: 'status', text: `Installing ${msg.extensionId}... Restart VS Code after installation.` });
+      try {
+        await vscode.commands.executeCommand('workbench.extensions.installExtension', msg.extensionId);
+        panel.webview.postMessage({ type: 'status', text: `Installed ${msg.extensionId}. Reload to activate.` });
+        const reload = await vscode.window.showInformationMessage(
+          `${msg.extensionId} installed. Reload VS Code now?`, 'Reload'
+        );
+        if (reload) vscode.commands.executeCommand('workbench.action.reloadWindow');
+      } catch {
+        // Fallback: open Extensions view with search query
+        await vscode.commands.executeCommand('workbench.extensions.search', msg.extensionId);
+        panel.webview.postMessage({ type: 'status', text: `Opened Extensions view for ${msg.extensionId}. Click Install there.` });
+      }
     } else if (msg.type === 'settings') {
       vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
     } else if (msg.type === 'dismiss') {
