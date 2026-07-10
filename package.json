@@ -304,8 +304,8 @@
         },
         "upp.workspacesDir": {
           "type": "string",
-          "default": "",
-          "description": "Directory containing .code-workspace files. When an assembly is selected, the extension looks for a matching <assemblyName>.code-workspace here, then falls back to any workspace whose folders overlap the assembly nests, then to opening the first nest dir directly."
+          "default": "~/.config/u++/vscode",
+          "description": "Directory containing .code-workspace files. Defaults to ~/.config/u++/vscode. The ~ prefix is expanded to the home directory automatically."
         },
         "upp.umkPath": {
           "type": "string",

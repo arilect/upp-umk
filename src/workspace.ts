@@ -7,6 +7,10 @@ import { persistSetting } from './utils';
 
 // ─── Build Settings ──────────────────────────────────────────────────────────
 
+function expandHome(p: string): string {
+  return p.replace(/^~(?=\/|$)/, os.homedir());
+}
+
 export function buildSettings(
   assembly: Assembly,
   mainPackage: string | undefined,
@@ -33,7 +37,7 @@ export function buildSettings(
  */
 export function getWorkspaceFilePath(assembly: Assembly, pkgName: string): string {
   const cfg = vscode.workspace.getConfiguration('upp');
-  const workspacesDir = cfg.get<string>('workspacesDir', '') ?? '';
+  const workspacesDir = expandHome(cfg.get<string>('workspacesDir') ?? '');
   const safeName = pkgName.replace(/[/\\]/g, '-');
   if (workspacesDir) {
     return path.join(workspacesDir, `${safeName}.code-workspace`);
@@ -247,7 +251,7 @@ async function switchWorkspaceInner(
 
 export function getWorkspacesDir(): string {
   const cfg = vscode.workspace.getConfiguration('upp');
-  return cfg.get<string>('workspacesDir', '') ?? '';
+  return expandHome(cfg.get<string>('workspacesDir') ?? '');
 }
 
 function getLogPath(): string {
@@ -268,7 +272,7 @@ function logWorkspaces(message: string) {
 
 export async function syncWorkspaces() {
   const cfg = vscode.workspace.getConfiguration('upp');
-  const workspacesDir = cfg.get<string>('workspacesDir', '');
+  const workspacesDir = expandHome(cfg.get<string>('workspacesDir') ?? '');
   if (!workspacesDir) {
     vscode.window.showWarningMessage('UPP: Set "upp.workspacesDir" first.');
     return;

@@ -66,8 +66,8 @@ export async function activate(context: vscode.ExtensionContext) {
   const wsFile = vscode.workspace.workspaceFile;
   if (wsFile?.scheme === 'file' && activeMainPackage && activeAssembly) {
     const wsBaseName = path.basename(wsFile.fsPath, '.code-workspace');
-    const pkgBaseName = path.basename(activeMainPackage);
-    if (wsBaseName !== pkgBaseName) {
+    const safeName = activeMainPackage.replace(/[/\\]/g, '-');
+    if (wsBaseName !== safeName) {
       const correctWsPath = getWorkspaceFilePath(activeAssembly, activeMainPackage);
       const correctWsExists = fs.existsSync(correctWsPath);
 
@@ -87,10 +87,10 @@ export async function activate(context: vscode.ExtensionContext) {
         <h2>Workspace / Package Mismatch</h2>
         <p>The workspace file and active package do not match:</p>
         <div class="ws"><b>Workspace:</b> ${escHtml(wsBaseName)}</div>
-        <div class="ws"><b>Package:</b> ${escHtml(pkgBaseName)}</div>
+        <div class="ws"><b>Package:</b> ${escHtml(activeMainPackage!)}</div>
         <p>This means that a bug in switching workspace chain still exist or you have opened the workspace not via upp-umk extension. You can fix the workspace by clicking the button below or continue to work without upp-umk intended functionality.</p>
         <br/>
-        <button class="btn-primary" id="btnRecreate">Recreate workspace from ${escHtml(pkgBaseName)}.upp</button>
+        <button class="btn-primary" id="btnRecreate">Recreate workspace from ${escHtml(path.basename(activeMainPackage!))}.upp</button>
         <div id="status" style="margin-top:12px;opacity:0.8;"></div>
         <script>
           const vscode = acquireVsCodeApi();
@@ -123,7 +123,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
             if (correctWsExists) {
               const choice = await vscode.window.showWarningMessage(
-                `Workspace "${pkgBaseName}.code-workspace" already exists. Switch to it?`,
+                `Workspace "${safeName}.code-workspace" already exists. Switch to it?`,
                 'Switch', 'Delete & Recreate', 'Cancel'
               );
               if (choice === 'Switch') {
@@ -167,19 +167,6 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   const cfg = vscode.workspace.getConfiguration('upp');
-  const workspacesDir = cfg.get<string>('workspacesDir', '');
-
-  if (!workspacesDir && !cfg.get<boolean>('workspacesDirPrompted')) {
-    const choice = await vscode.window.showInformationMessage(
-      'UPP: You can optionally configure a workspace directory for advanced workspace management.',
-      'Got it', 'Open Settings', 'Later'
-    );
-    if (choice === 'Got it') {
-      await cfg.update('workspacesDirPrompted', true, vscode.ConfigurationTarget.Global);
-    } else if (choice === 'Open Settings') {
-      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:arilect.upp-umk');
-    }
-  }
 
   if (!activeInstallation) {
     const found = scanInstallations();
