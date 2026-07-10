@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { runUmk } from './umkRunner';
 import { updateIntelliSense } from './intelliSense';
+import { updateLaunchJson } from './launchConfig';
+import { showDebugAdapterPanel } from './debugAdapterPanel';
 import { UppTaskProvider } from './taskProvider';
 import { syncCompileCommandsCommand, updateCompileCommandsWatcher, doCompileCommandsGeneration, disposeCompileCommandsWatcher } from './compileCommands';
 import {
@@ -253,8 +255,11 @@ export async function activate(context: vscode.ExtensionContext) {
   // (removes stale compileCommands references if the file was just deleted)
   const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
   if (activeAssembly && wsRoot) {
-    updateIntelliSense(activeAssembly, wsRoot, activeMainPackage, cfg.get('buildFlags', ''), outputChannel)
-      .catch(err => console.warn('UPP: updateIntelliSense failed:', err));
+    const buildFlags = cfg.get('buildFlags', '');
+    Promise.all([
+      updateIntelliSense(activeAssembly, wsRoot, activeMainPackage, buildFlags, outputChannel),
+      updateLaunchJson(activeInstallation, activeAssembly, activeMainPackage, wsRoot, buildFlags),
+    ]).catch(err => console.warn('UPP: updateIntelliSense/launchJson failed:', err));
   }
 
   context.subscriptions.push(
@@ -453,49 +458,50 @@ export async function activate(context: vscode.ExtensionContext) {
 
       if (nativeDebug || cpptools) {
         try {
-          const args = runArgs ? runArgs.split(/\s+/).filter(Boolean) : [];
+          // Ensure launch.json is fresh, then read from disk
+          await updateLaunchJson(activeInstallation, activeAssembly!, activeMainPackage, cwd, buildFlags);
 
+          const launchJsonPath = path.join(cwd, '.vscode', 'launch.json');
           let launchConfig: any;
-          if (nativeDebug) {
-            launchConfig = {
-              name: 'UPP: Debug',
-              type: 'gdb',
-              request: 'launch',
-              target: binaryPath,
-              cwd,
-              arguments: runArgs || undefined,
-              gdbpath: debuggerPath,
-            };
-          } else {
-            launchConfig = {
-              name: 'UPP: Debug',
-              type: 'cppdbg',
-              request: 'launch',
-              program: binaryPath,
-              args,
-              stopAtEntry: false,
-              cwd,
-              environment: [],
-              externalConsole: false,
-              MIMode: 'gdb',
-              miDebuggerPath: debuggerPath,
-              setupCommands: [
-                { text: '-enable-pretty-printing', description: 'Enable pretty printing', ignoreFailures: true },
-              ],
-            };
+          if (fs.existsSync(launchJsonPath)) {
+            try {
+              const launchJson = JSON.parse(fs.readFileSync(launchJsonPath, 'utf8'));
+              launchConfig = launchJson.configurations?.[0];
+            } catch { /* ignore parse error */ }
           }
 
-          const vscodeDir = path.join(cwd, '.vscode');
-          const launchJsonPath = path.join(vscodeDir, 'launch.json');
-          const launchJson = {
-            version: '0.2.0',
-            configurations: [launchConfig],
-          };
-
-          if (!fs.existsSync(vscodeDir)) {
-            fs.mkdirSync(vscodeDir, { recursive: true });
+          // Fallback: build config inline if file is missing or unreadable
+          if (!launchConfig) {
+            const args = runArgs ? runArgs.split(/\s+/).filter(Boolean) : [];
+            if (nativeDebug) {
+              launchConfig = {
+                name: 'UPP: Debug',
+                type: 'gdb',
+                request: 'launch',
+                target: binaryPath,
+                cwd,
+                arguments: runArgs || undefined,
+                gdbpath: debuggerPath,
+              };
+            } else {
+              launchConfig = {
+                name: 'UPP: Debug',
+                type: 'cppdbg',
+                request: 'launch',
+                program: binaryPath,
+                args,
+                stopAtEntry: false,
+                cwd,
+                environment: [],
+                externalConsole: false,
+                MIMode: 'gdb',
+                miDebuggerPath: debuggerPath,
+                setupCommands: [
+                  { text: '-enable-pretty-printing', description: 'Enable pretty printing', ignoreFailures: true },
+                ],
+              };
+            }
           }
-          fs.writeFileSync(launchJsonPath, JSON.stringify(launchJson, null, 4) + '\n', 'utf8');
 
           setIsDebugging(true);
           updateStatusBar();
@@ -506,24 +512,9 @@ export async function activate(context: vscode.ExtensionContext) {
           updateStatusBar();
         }
       } else {
-        let terminal = debugTerminal;
-        if (terminal && terminal.exitStatus !== undefined) {
-          terminal.dispose();
-          terminal = undefined;
-          setDebugTerminal(undefined);
-        }
-        if (!terminal) {
-          terminal = vscode.window.createTerminal({ name: 'UPP: Debug' });
-          setDebugTerminal(terminal);
-        }
-        terminal.show(false);
-        terminal.sendText(`${debuggerPath} "${binaryPath}"`);
-        setIsDebugging(true);
+        showDebugAdapterPanel();
+        setIsDebugging(false);
         updateStatusBar();
-
-        vscode.window.showInformationMessage(
-          'UPP: Opening gdb in terminal. For breakpoints/stepping in VS Code, install "Native Debug" (webfreak.debug).'
-        );
       }
     }),
     vscode.commands.registerCommand('upp.stopDebug', () => {
@@ -612,7 +603,10 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!root) return;
       const cfg = vscode.workspace.getConfiguration('upp');
       const buildFlags = cfg.get('buildFlags', '');
-      await updateIntelliSense(activeAssembly!, root, activeMainPackage, buildFlags, outputChannel);
+      await Promise.all([
+        updateIntelliSense(activeAssembly!, root, activeMainPackage, buildFlags, outputChannel),
+        updateLaunchJson(activeInstallation, activeAssembly!, activeMainPackage, root, buildFlags),
+      ]);
     }),
     vscode.commands.registerCommand('upp.generateCompileCommands', async () => {
       if (!(await ensureActiveAssembly())) return;
@@ -655,6 +649,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('upp.editConfigFlags', () => showConfigFlagsPanel()),
     vscode.commands.registerCommand('upp.editCppStandard', () => showCppStandardPanel()),
     vscode.commands.registerCommand('upp.openIntellisensePanel', () => showIntellisensePanel()),
+    vscode.commands.registerCommand('upp.showDebugAdapterPanel', () => showDebugAdapterPanel()),
     vscode.commands.registerCommand('upp.setCppStandard', async (value: string) => {
       const cfg = vscode.workspace.getConfiguration('upp');
       await cfg.update('cppStandard', value, vscode.ConfigurationTarget.Workspace);

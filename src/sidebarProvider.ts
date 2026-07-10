@@ -700,6 +700,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ${button(runLabel, runCmd, this.running ? 'btn--run is-running' : 'btn--run')}
   ${button(debugLabel, debugCmd, this.debugging ? 'btn--debug is-debugging' : 'btn--debug')}
+  ${!vscode.extensions.getExtension('webfreak.debug') && !vscode.extensions.getExtension('ms-vscode.cpptools')
+    ? `<div class="property-row" style="color:var(--vscode-charts-red);" onclick="vscode.postMessage({ command: 'executeCommand', commandId: 'upp.showDebugAdapterPanel' })">
+        <span class="label">Debug Adapter</span>
+        <span class="value">not installed</span>
+      </div>`
+    : ''}
 
   ${row('Run Options', 'settings', 'upp.editRunOptions')}
 

@@ -11,6 +11,7 @@ import {
 import { syncBuildCommand } from './buildCommand';
 import { switchWorkspace } from './workspace';
 import { updateIntelliSense } from './intelliSense';
+import { updateLaunchJson } from './launchConfig';
 import { syncCompileCommandsCommand, updateCompileCommandsWatcher } from './compileCommands';
 import { showNewPackagePanel } from './newPackagePanel';
 import { showNewAssemblyPanel } from './newAssemblyPanel';
@@ -231,7 +232,10 @@ export function newPackage() {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
     const buildFlags = vscode.workspace.getConfiguration('upp').get('buildFlags', '') as string;
     if (root) {
-      await updateIntelliSense(activeAssembly!, root, relativePkg, buildFlags, outputChannel);
+      await Promise.all([
+        updateIntelliSense(activeAssembly!, root, relativePkg, buildFlags, outputChannel),
+        updateLaunchJson(activeInstallation, activeAssembly!, relativePkg, root, buildFlags),
+      ]);
     }
     updateStatusBar();
     vscode.window.showInformationMessage(`UPP: Package "${pkgName}" created and activated.`);

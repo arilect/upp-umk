@@ -146,6 +146,12 @@
         "icon": "$(settings)"
       },
       {
+        "command": "upp.showDebugAdapterPanel",
+        "title": "Debug Adapter Setup",
+        "category": "UPP",
+        "icon": "$(debug-alt)"
+      },
+      {
         "command": "upp.stopRun",
         "title": "Stop Running Process",
         "category": "UPP",
@@ -451,6 +457,11 @@
           "type": "string",
           "default": "",
           "description": "Path to debugger executable (gdb or lldb-mi). Leave empty to auto-detect from the .bm file's DEBUGGER field and PATH."
+        },
+        "upp.autoLaunchJson": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically create/update .vscode/launch.json when IntelliSense is updated (assembly/package switch, manual refresh). Set to false to disable."
         },
         "upp.restartClangdAfterGenerate": {
           "type": "boolean",

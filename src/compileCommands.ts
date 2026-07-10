@@ -486,9 +486,13 @@ export async function doCompileCommandsGeneration(
       progress.report({ message: 'Updating IntelliSense...' });
       // Lazy import to avoid circular dependency
       const { updateIntelliSense } = await import('./intelliSense');
+      const { updateLaunchJson } = await import('./launchConfig');
       const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
       if (root) {
-        await updateIntelliSense(assembly, root, mainPackage, buildFlags, outputChannel);
+        await Promise.all([
+          updateIntelliSense(assembly, root, mainPackage, buildFlags, outputChannel),
+          updateLaunchJson(activeInstallation, assembly, mainPackage, root, buildFlags),
+        ]);
       }
       progress.report({ increment: 100, message: 'Done' });
 

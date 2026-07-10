@@ -181,3 +181,81 @@ The `upp.clangdSuppress` setting lets you suppress specific clangd diagnostics t
 **c_cpp_properties.json viewer/editor:**
 
 The panel also displays the contents of the generated `c_cpp_properties.json` file, showing include paths, defines, and IntelliSense mode for reference.
+
+## Debugging
+
+### How It Works
+
+1. Click **Debug** (or `Ctrl+Shift+D`)
+2. Extension builds with debug symbols (strips `r` and `d` from build flags)
+3. Generates `.vscode/launch.json` (auto-managed by `upp.autoLaunchJson`)
+4. Launches gdb via the installed debug adapter
+
+### Debug Adapters
+
+Before using Debug, you must install a debug adapter. Without one, the extension shows a setup panel with install links — it will **not** fall back to raw `gdb` in a terminal.
+
+| | Native Debug (`webfreak.debug`) | C/C++ (`ms-vscode.cpptools`) |
+|---|---|---|
+| **Install** | `ext install webfreak.debug` | `ext install ms-vscode.cpptools` |
+| **Recommended for** | Linux / macOS | Windows |
+| **GDB 17.1+** | Works (own adapter) | Known issues ([MIEngine#1607](https://github.com/microsoft/MIEngine/issues/1607)) |
+| **Variable inspection** | Basic (limited child expansion) | Full (Natvis, structured data) |
+| **Remote debugging** | Built-in SSH + gdbserver | Pipe transport (Docker, etc.) |
+| **Weight** | Lightweight (~890K installs) | Heavy — brings IntelliSense (~30M installs) |
+| **Breakpoints** | Conditional, function, attach by PID | Conditional, function, data, logpoints |
+| **IntelliSense** | None (debugging only) | Full (completions, hover, go-to-definition) |
+
+### Which to Choose
+
+- **Linux / macOS**: Start with **Native Debug** — lightweight, reliable, no MIEngine quirks
+- **Windows**: **C/C++ extension** — better Windows debugger integration
+- **Both installed**: Native Debug takes priority (the extension prefers it)
+
+> **Note:** The debugger picker may also show options like "Node.js" or "Chrome" — these are
+> VS Code's generic debuggers for other languages and will not work with U++ binaries.
+> Always select **"UPP: Debug"**.
+
+### Troubleshooting
+
+- **"Debug binary not found"** — Build the project first (`Ctrl+Shift+B`). Check `upp.outPath` if using a custom output directory.
+- **"No Debug Adapter" panel** — Install Native Debug or C/C++ from the panel's buttons, then restart VS Code.
+- **GDB 17.1 breaks cppdbg** — Switch to Native Debug (has its own adapter, not reliant on MIEngine), or downgrade GDB to 16.x.
+- **Breakpoints not hit** — Ensure the binary was built with debug symbols (default). Check that `upp.buildFlags` does not include `r` (release) or `d` (minimal debug).
+
+## Headless / Remote / VPS
+
+### How It Works
+
+The extension auto-detects headless environments (no display server) and routes program output to the VS Code integrated terminal instead of trying to open an external emulator. This works out-of-the-box on:
+
+- **code-server** / **VS Code Server** (browser-based VS Code)
+- **SSH remote development** (VS Code Remote - SSH)
+- **Docker / dev containers** (VS Code Remote - Containers)
+- **VPS / cloud instances** without a desktop environment
+
+### Auto-Detection Logic
+
+When `upp.useIntegratedTerminal` is not explicitly set, the extension checks:
+
+1. `$DISPLAY` or `$WAYLAND_DISPLAY` set? → Desktop present → use external terminal
+2. No display server + `$TERM_PROGRAM` is `vscode`, `code-server`, or `vscode-insiders`? → Headless remote → use integrated terminal
+
+### Recommended Settings for Headless
+
+| Setting | Recommended Value | Why |
+|---|---|---|
+| `upp.useIntegratedTerminal` | `true` (or leave unset for auto-detect) | External terminal emulators need a display server |
+| `upp.outputConsole` | `"always"` or `"never"` | `"always"` shows output immediately; `"never"` runs silently |
+| `upp.runCwd` | `""` (default) or custom path | Falls back to debug output directory if empty |
+| `upp.runEnv` | Per-project needs | Environment variables (newline-separated `KEY=VALUE`) |
+
+### Debugging on Headless
+
+- **Native Debug recommended** — lighter, own GDB adapter, built-in SSH remote support
+- No `$DISPLAY` means external terminal emulation will fail — integrated terminal is the only option
+- The debug adapter panel works normally on headless — it opens in VS Code's webview
+
+### CI / GitHub Actions
+
+The extension does **not** auto-detect CI environments (`$CI`, `$GITHUB_ACTIONS`, etc.). If running VS Code Server in CI, set `upp.useIntegratedTerminal: true` explicitly. For pure CI pipelines without VS Code, use `umk` directly from the command line — it requires no GTK or display server.
