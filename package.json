@@ -437,6 +437,16 @@
           "default": "",
           "description": "U++ build output directory. Defaults to ~/.cache/upp.out/ or ~/upp.out/ depending on your U++ version. Used to locate the compiled binary for debugging."
         },
+        "upp.outputPerAssembly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mirror U++ output_per_assembly: prepend the assembly name to the output path (<out>/<assembly>/<package>/<variant>/). Default false matches umk (<out>/<package>/<variant>/). Auto-set to true when a theide installation is detected."
+        },
+        "upp.useTarget": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mirror umk -u (use_target): store all target files in the same directory, omitting the <package> segment and the 'Main' flag from the variant name. Path becomes <out>/[<assembly>/]<variant>/<binary>."
+        },
         "upp.debuggerPath": {
           "type": "string",
           "default": "",

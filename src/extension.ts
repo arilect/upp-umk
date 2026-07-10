@@ -233,6 +233,18 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   }
 
+  // Auto-default upp.outputPerAssembly based on the active installation:
+  //   - theide present → true  (theide sets output_per_assembly = true)
+  //   - umk only       → false (umk default; Build.cpp:242)
+  // Only when the user has never set it, so it stays overridable.
+  {
+    const inspect = cfg.inspect<boolean>('outputPerAssembly');
+    if (inspect?.globalValue === undefined && inspect?.workspaceValue === undefined) {
+      const hasTheide = !!activeInstallation && fs.existsSync(path.join(activeInstallation.path, 'theide'));
+      await cfg.update('outputPerAssembly', hasTheide, vscode.ConfigurationTarget.Global);
+    }
+  }
+
   syncBuildCommand().catch(err => console.warn('UPP: syncBuildCommand failed:', err));
 
   // Regenerate IntelliSense config to reflect current file state
@@ -347,6 +359,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (linkMode === 'use-shared') linkFlag = 's';
       else if (linkMode === 'all-shared') linkFlag = 'S';
       const buildFlags = buildFlagsRaw.replace(/[dr]/g, '') + linkFlag;
+      const useTarget = cfg.get<boolean>('useTarget', false);
 
       if (guiMode === 'gui') {
         const flags = new Set(configurationFlag.split(',').filter(Boolean));
@@ -373,6 +386,7 @@ export async function activate(context: vscode.ExtensionContext) {
             buildFlags,
             configurationFlag,
             outPath,
+            useTarget,
             action: 'build',
             outputChannel,
             showOutput: 'auto',
@@ -385,7 +399,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''), cfg.get('buildFlags', ''));
+      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''), buildFlags);
       if (!fs.existsSync(binaryPath)) {
         vscode.window.showErrorMessage(`UPP: Debug binary not found at "${binaryPath}". Build the project first and verify the output path.`);
         return;
@@ -701,6 +715,12 @@ export async function activate(context: vscode.ExtensionContext) {
       await cfg.update('activeInstallation', picked.installation.path, vscode.ConfigurationTarget.Global);
       const umkPath = process.platform === 'win32' ? path.join(picked.installation.path, 'umk.exe') : 'umk';
       await cfg.update('umkPath', umkPath, vscode.ConfigurationTarget.Global);
+      // Re-evaluate outputPerAssembly default if the user has never set it
+      const opaInspect = cfg.inspect<boolean>('outputPerAssembly');
+      if (opaInspect?.globalValue === undefined && opaInspect?.workspaceValue === undefined) {
+        const hasTheide = fs.existsSync(path.join(picked.installation.path, 'theide'));
+        await cfg.update('outputPerAssembly', hasTheide, vscode.ConfigurationTarget.Global);
+      }
       updateStatusBar();
       vscode.window.showInformationMessage(`UPP: Source tree "${picked.installation.label}" selected with ${picked.installation.assemblies.length} assembly(ies).`);
     })
@@ -745,7 +765,9 @@ export async function activate(context: vscode.ExtensionContext) {
           e.affectsConfiguration('upp.buildFlags')  ||
           e.affectsConfiguration('upp.linkMode')  ||
           e.affectsConfiguration('upp.configurationFlag')  ||
-          e.affectsConfiguration('upp.outPath')
+          e.affectsConfiguration('upp.outPath')  ||
+          e.affectsConfiguration('upp.outputPerAssembly') ||
+          e.affectsConfiguration('upp.useTarget')
         ) {
           syncBuildCommand().catch(err => console.warn('UPP: syncBuildCommand failed:', err));
         }

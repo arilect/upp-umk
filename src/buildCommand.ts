@@ -17,7 +17,7 @@ export interface BuildParams {
 /**
  * Strip s/S from buildFlags (link mode is controlled by upp.linkMode).
  */
-function stripLinkFlags(flags: string): string {
+export function stripLinkFlags(flags: string): string {
   return flags.split('').filter(c => c !== 's' && c !== 'S').join('');
 }
 
@@ -25,7 +25,7 @@ function stripLinkFlags(flags: string): string {
  * Get the link mode flag from upp.linkMode setting.
  * Returns 's', 'S', or '' for static.
  */
-function getLinkModeFlag(cfg: vscode.WorkspaceConfiguration): string {
+export function getLinkModeFlag(cfg: vscode.WorkspaceConfiguration): string {
   const mode: string = cfg.get('linkMode', 'all-static');
   if (mode === 'use-shared') return 's';
   if (mode === 'all-shared') return 'S';
@@ -35,7 +35,7 @@ function getLinkModeFlag(cfg: vscode.WorkspaceConfiguration): string {
 /**
  * Get effective build flags with link mode injected and s/S stripped from raw flags.
  */
-function effectiveBuildFlags(cfg: vscode.WorkspaceConfiguration): string {
+export function effectiveBuildFlags(cfg: vscode.WorkspaceConfiguration): string {
   const raw: string = cfg.get('buildFlags', '');
   return stripLinkFlags(raw) + getLinkModeFlag(cfg);
 }

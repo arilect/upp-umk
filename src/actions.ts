@@ -10,21 +10,9 @@ import {
 import { selectAssembly } from './panels';
 import { resolveDebugOutputDir, resolveBinaryPath, resolveOutputDir } from './outputDir';
 import { resolveUmkPath } from './utils';
+import { effectiveBuildFlags } from './buildCommand';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Get effective build flags with link mode injected and s/S stripped from raw flags.
- */
-function effectiveBuildFlags(cfg: vscode.WorkspaceConfiguration): string {
-  const raw: string = cfg.get('buildFlags', '');
-  const stripped = raw.split('').filter(c => c !== 's' && c !== 'S').join('');
-  const mode: string = cfg.get('linkMode', 'all-static');
-  let linkFlag = '';
-  if (mode === 'use-shared') linkFlag = 's';
-  else if (mode === 'all-shared') linkFlag = 'S';
-  return stripped + linkFlag;
-}
 
 export async function ensureActiveAssembly(): Promise<boolean> {
   if (activeAssembly && activeMainPackage) return true;
@@ -264,6 +252,7 @@ export async function doAction(action: UmkAction) {
   const flagArg      = effectiveBuildFlags(cfg);
   let   configurationFlag   = cfg.get('configurationFlag', '');
   const outPath      = cfg.get('outPath', '');
+  const useTarget    = cfg.get('useTarget', false);
   const runArgs: string = cfg.get('runArgs', '');
   const guiMode      = cfg.get<'auto' | 'gui' | 'console'>('guiMode', 'auto');
 
@@ -306,6 +295,7 @@ export async function doAction(action: UmkAction) {
       const args = [assemblyName, mainPackage];
       if (buildMethod) args.push(buildMethod);
       if (flagArg)    args.push(`-${flagArg}`);
+      if (useTarget)  args.push('-u');
       if (configurationFlag) args.push(`+${configurationFlag}`);
       if (outPath)    args.push(outPath);
       args.push('!');
@@ -332,6 +322,7 @@ export async function doAction(action: UmkAction) {
         buildFlags: flagArg,
         configurationFlag,
         outPath,
+        useTarget,
         action,
         outputChannel,
         showOutput: showBuildOutput,

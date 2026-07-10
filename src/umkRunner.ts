@@ -11,6 +11,7 @@ export interface UmkOptions {
   buildFlags?: string;   // combined flags without dash, e.g. "br" = blitz+release
   configurationFlag?: string;   // +FLAG,FLAG compilation flags, e.g. "GUI,MT"
   outPath?: string;      // override output path
+  useTarget?: boolean;   // umk -u: store all target files in the same directory
   runArgs?: string[];    // arguments to pass to the binary when action === 'run'
   action: UmkAction;
   outputChannel: vscode.OutputChannel;
@@ -46,6 +47,9 @@ function buildArgs(opts: UmkOptions): string[] {
   let flags = opts.buildFlags?.trim() ?? '';
   if (opts.action === 'rebuild') {
     flags = flags.includes('a') ? flags : 'a' + flags;
+  }
+  if (opts.useTarget) {
+    flags = flags.includes('u') ? flags : flags + 'u';
   }
   if (flags) {
     args.push(`-${flags}`);

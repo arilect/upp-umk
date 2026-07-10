@@ -126,13 +126,14 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const linkMode      = cfg.get<string>('linkMode', 'all-static');
     const linkModeLabel = linkMode === 'all-static' ? 'All Static' : linkMode === 'use-shared' ? 'Use Shared (-s)' : 'All Shared (-S)';
     const buildFlags    = cfg.get<string>('buildFlags', '');
+    const useTarget     = cfg.get<boolean>('useTarget', false);
     const linkModeFlag  = linkMode === 'use-shared' ? 's' : linkMode === 'all-shared' ? 'S' : '';
     const effectiveFlags = buildFlags.split('').filter(c => c !== 's' && c !== 'S').join('') + linkModeFlag;
     const outputLabel   = buildFlags.includes('r') ? 'Release' : 'Debug';
     const extra         = cfg.get<string>('configurationFlag', '') || none;
     const umkPathDisplay = resolveUmkPath(cfg, this.installation);
     const buildCmdText  = (this.assembly && this.mainPackage)
-      ? [umkPathDisplay, this.assembly.name, path.basename(this.mainPackage), method, effectiveFlags ? `-${effectiveFlags}` : '', extra !== none ? `+${extra}` : ''].filter(Boolean).join(' ')
+      ? [umkPathDisplay, this.assembly.name, path.basename(this.mainPackage), method, effectiveFlags ? `-${effectiveFlags}` : '', useTarget ? '-u' : '', extra !== none ? `+${extra}` : ''].filter(Boolean).join(' ')
       : cfg.get<string>('buildCommand', '') || none;
     const cppStandardOptions = cfg.get<string[]>('cppStandardOptions', ['c++23', 'c++20', 'c++17', 'c++14', 'c++11', 'c++98']);
     const compileCommandsMode = cfg.get<string>('compileCommandsMode', 'auto');

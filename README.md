@@ -150,6 +150,8 @@ Click **+ New Assembly** at the bottom of the assembly list to create a new asse
   "upp.extraFlags": "",
   "upp.outPath": "",
   "upp.outputDir": "",
+  "upp.outputPerAssembly": false,
+  "upp.useTarget": false,
   "upp.debuggerPath": "gdb",
   "upp.buildCommand": "",
   "upp.debugCommand": "",
@@ -168,6 +170,8 @@ Click **+ New Assembly** at the bottom of the assembly list to create a new asse
 | `upp.outPath` | `""` | Override output file or directory |
 | `upp.workspacesDir` | `""` | Directory for `.code-workspace` files |
 | `upp.outputDir` | `""` | U++ build output directory. Defaults to `~/.cache/upp.out/` |
+| `upp.outputPerAssembly` | `false` | Mirror U++ `output_per_assembly`: prepend `<assembly>/` to the output path. Default `false` matches umk; auto-set `true` when a theide install is detected |
+| `upp.useTarget` | `false` | Mirror umk `-u` (`use_target`): store all target files in the same directory, omitting `<package>/` and `Main` from the variant name |
 | `upp.debuggerPath` | `"gdb"` | Path to gdb executable |
 | `upp.guiMode` | `"auto"` | `"auto"`, `"gui"`, or `"console"` — controls +GUI flag |
 | `upp.runArgs` | `""` | Extra arguments passed to the binary when running |
@@ -196,18 +200,39 @@ Without a debug extension, opens `gdb <binary>` in the terminal for manual debug
 
 ### Binary path resolution
 
-The extension searches the U++ output directory for the compiled binary:
+The extension computes the output path exactly the way `umk` does (mirroring
+`MakeBuild::OutDir` in `uppsrc/ide/Builders/Build.cpp`), then falls back to a
+filesystem scan if the computed path doesn't exist yet.
+
+Default umk layout (`upp.outputPerAssembly = false`, `upp.useTarget = false`):
 
 ```
-~/.cache/upp.out/<assembly>/<method>.<mode>.<flags>/<package>
+<out>/<package>/<method>.<variant>/<binary>
 ```
 
-For example:
+For example, a debug + shared build of the `Log` package with method `CLANG`:
 ```
-~/.cache/upp.out/git-reference/CLANG.Debug.Debug_Full.Gui.Shared.X11/ArrayCtrl
+~/.cache/upp.out/Log/CLANG.Debug.Debug_Full.Main.Noblitz.Shared/Log
 ```
 
-The search only looks in build output directories (names starting with `CLANG.`, `GCC.`, etc.), skipping package source directories.
+With `upp.outputPerAssembly = true` (theide-style) the assembly name is prepended:
+```
+~/.cache/upp.out/<assembly>/<package>/<method>.<variant>/<binary>
+```
+
+With `upp.useTarget = true` (umk `-u`) the `<package>/` segment is omitted and
+`Main` is excluded from the variant name:
+```
+~/.cache/upp.out/<method>.<variant>/<binary>
+```
+
+The variant name is built from the build configuration flags (sorted +
+InitCaps'd): `Debug`, `Debug_Full` (default, unless `-d`), `Main` (main
+package, unless `useTarget`), `Noblitz` (debug + no `-b`), `Blitz` (release
+with `-b`), `Shared`/`Shared.So` (link modes), plus `+FLAG` configuration flags.
+
+When the computed path doesn't exist, the extension scans `<out>` for build
+directories (names starting with `CLANG.`, `GCC.`, etc.) containing the binary.
 
 ### Build flags for debug
 
