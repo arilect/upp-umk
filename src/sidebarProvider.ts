@@ -21,6 +21,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
   private outputDirPath: string | undefined;
   private debugOutputDirPath: string | undefined;
   private debugCmdText: string | undefined;
+  private _refreshTimer?: ReturnType<typeof setInterval>;
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -69,9 +70,16 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
 
     webviewView.onDidDispose(() => {
       this._view = undefined;
+      if (this._refreshTimer) { clearInterval(this._refreshTimer); this._refreshTimer = undefined; }
     }, null, this._disposables);
 
     this._updateHtml();
+
+    // Periodic refresh: re-render every 3s while visible so the button label
+    // reflects the current binary existence (catches manual deletes, cleans, etc.)
+    if (!this._refreshTimer) {
+      this._refreshTimer = setInterval(() => this._updateHtml(), 3000);
+    }
   }
 
   refresh(
@@ -100,6 +108,7 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
   }
 
   dispose() {
+    if (this._refreshTimer) { clearInterval(this._refreshTimer); this._refreshTimer = undefined; }
     for (const d of this._disposables) d.dispose();
   }
 
@@ -175,8 +184,9 @@ export class UppSidebarProvider implements vscode.WebviewViewProvider, vscode.Di
     const cppStandard = bmStdMatch ? bmStdMatch[1] : (cfg.get<string>('cppStandard', '') || 'c++17 (default)');
     const binaryPath = computeBinaryPath(this.installation, this.assembly, this.mainPackage, bmName, buildFlagsVal, confFlag, methodVars);
 
-    const runLabel  = this.running ? '\u23F9 Stop' : '\u25B6 Run';
-    const runDesc   = this.running ? 'running\u2026' : (binaryPath ?? '(not built)');
+    const built = binaryPath ? fs.existsSync(binaryPath) : false;
+    const runLabel  = this.running ? '\u23F9 Stop' : (built ? '\u25B6 Run' : '\u25B6 Build & Run');
+    const runDesc   = this.running ? 'running\u2026' : (built ? (binaryPath ?? '') : '(not built)');
     const debugLabel = this.debugging ? '\u23F9 Stop Debug' : '\ud83d\udc28 Debug';
     const debugDesc  = this.debugging ? 'debugging\u2026' : '';
 

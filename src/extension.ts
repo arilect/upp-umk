@@ -23,7 +23,7 @@ import { UppSidebarProvider } from './sidebarProvider';
 import { resolveOutputDir, resolveDebugOutputDir, resolveBinaryPath } from './outputDir';
 import { syncBuildCommand, selectBuildParams, selectBuildMethod, selectOutput, selectLinkMode, setOutput, setLinkMode } from './buildCommand';
 import { syncWorkspaces, getWorkspaceFilePath, ensureWorkspaceFile } from './workspace';
-import { doAction, ensureActiveAssembly, cleanBuildOutput } from './actions';
+import { doAction, ensureActiveAssembly, cleanBuildOutput, shouldUseIntegratedTerminal } from './actions';
 import { resolveUmkPath } from './utils';
 import {
   selectAssembly, selectPackage, selectConfig, setConfig,
@@ -555,7 +555,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const outputDir = path.dirname(resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, cfg.get('buildMethod', ''), cfg.get('buildFlags', '')));
       if (fs.existsSync(outputDir)) {
-        vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
+        if (shouldUseIntegratedTerminal(cfg)) {
+          const term = vscode.window.createTerminal({ name: 'UPP Output', cwd: outputDir });
+          term.show();
+        } else {
+          vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(outputDir));
+        }
       } else {
         vscode.window.showWarningMessage(`UPP: Output directory not found: ${outputDir}. Build the project first.`);
       }
@@ -567,7 +572,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const debugDir = resolveDebugOutputDir(activeInstallation, activeAssembly, activeMainPackage);
       if (fs.existsSync(debugDir)) {
-        vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(debugDir));
+        if (shouldUseIntegratedTerminal(cfg)) {
+          const term = vscode.window.createTerminal({ name: 'UPP Debug Output', cwd: debugDir });
+          term.show();
+        } else {
+          vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(debugDir));
+        }
       } else {
         vscode.window.showWarningMessage(`UPP: Debug output directory not found: ${debugDir}. Build the project first.`);
       }

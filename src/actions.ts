@@ -280,10 +280,33 @@ export async function doAction(action: UmkAction) {
 
     if (process.platform === 'win32') {
       // Windows: run the compiled binary directly (umk + "!" doesn't work reliably)
-      const binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, buildMethod, flagArg);
+      let binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, buildMethod, flagArg);
       if (!binaryPath || !fs.existsSync(binaryPath)) {
-        vscode.window.showErrorMessage(`UPP: Binary not found at "${binaryPath}". Build the project first.`);
-        return;
+        // Binary not found — build first, then run
+        try {
+          await runUmk({
+            umkPath,
+            assemblyName,
+            mainPackage,
+            buildMethod,
+            buildFlags: flagArg,
+            configurationFlag,
+            outPath,
+            useTarget,
+            action: 'build',
+            outputChannel,
+            showOutput: 'auto',
+            uppEnv: activeInstallation?.path,
+          });
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`UPP build failed: ${err.message}`);
+          return;
+        }
+        binaryPath = resolveBinaryPath(activeInstallation, activeAssembly, activeMainPackage, buildMethod, flagArg);
+        if (!binaryPath || !fs.existsSync(binaryPath)) {
+          vscode.window.showErrorMessage(`UPP: Binary not found after build at "${binaryPath}".`);
+          return;
+        }
       }
       if (!runCwd || !fs.existsSync(runCwd)) {
         runCwd = path.dirname(binaryPath);
