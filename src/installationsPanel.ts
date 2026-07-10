@@ -7,6 +7,10 @@ import { scanVarFiles } from './assemblyParser';
 
 interface ManualEntry { path: string; addedManually: boolean; }
 
+function normPath(p: string): string {
+  return p.replace(/^~(?=\/|$)/, os.homedir()).replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
 export function showInstallationsPanel() {
   const isWindows = process.platform === 'win32';
   const panelTitle = isWindows ? 'U++ Installations' : 'U++ Source Trees';
@@ -41,20 +45,32 @@ export function showInstallationsPanel() {
   const currentEnabledAssemblies = cfg.get<string[]>('enabledAssemblies', []);
   const currentScannedAssemblies = cfg.get<string[]>('scannedAssemblies', []);
 
-  panel.webview.html = buildHtml(currentPaths, currentGlob, mergedManual, currentScanDirs, currentEnabledAssemblies, isWindows);
+  // Resolve workspaces dir and list existing workspace files
+  const rawWorkspacesDir = cfg.get<string>('workspacesDir') ?? '~/.config/u++/vscode';
+  const resolvedWorkspacesDir = rawWorkspacesDir.replace(/^~(?=\/|$)/, os.homedir());
+  let existingWorkspaceFiles: string[] = [];
+  if (resolvedWorkspacesDir && fs.existsSync(resolvedWorkspacesDir)) {
+    try {
+      existingWorkspaceFiles = fs.readdirSync(resolvedWorkspacesDir)
+        .filter(f => f.endsWith('.code-workspace'))
+        .sort();
+    } catch { /* ignore */ }
+  }
+
+  panel.webview.html = buildHtml(currentPaths, currentGlob, mergedManual, currentScanDirs, currentEnabledAssemblies, isWindows, rawWorkspacesDir, existingWorkspaceFiles);
 
   // Auto-scan on open: if scanDirs are set, run scan and send results to webview
   // Use setTimeout to ensure the webview's message listener is ready
   if (currentScanDirs.length > 0) {
     setTimeout(() => {
       const assemblies = scanVarFiles(currentScanDirs);
-      const enabledSet = new Set(currentEnabledAssemblies);
+      const enabledSet = new Set(currentEnabledAssemblies.map(normPath));
       const hasEnabled = currentEnabledAssemblies.length > 0;
       const results = assemblies.map(a => ({
         name: a.name,
         filePath: a.filePath,
         nests: a.nests,
-        enabled: hasEnabled ? enabledSet.has(a.filePath) : true,
+        enabled: hasEnabled ? enabledSet.has(normPath(a.filePath)) : true,
       }));
       panel.webview.postMessage({ type: 'varscanResult', assemblies: results });
     }, 200);
@@ -156,12 +172,12 @@ export function showInstallationsPanel() {
       await cfg.update('scanDirs', dirs, vscode.ConfigurationTarget.Global);
       const assemblies = scanVarFiles(dirs);
       const enabledRaw = cfg.get<string[]>('enabledAssemblies', []);
-      const enabledSet = new Set(enabledRaw);
+      const enabledSet = new Set(enabledRaw.map(normPath));
       const results = assemblies.map(a => ({
         name: a.name,
         filePath: a.filePath,
         nests: a.nests,
-        enabled: enabledSet.has(a.filePath) || enabledRaw.length === 0,
+        enabled: enabledSet.has(normPath(a.filePath)) || enabledRaw.length === 0,
       }));
       // Persist the full list of found assemblies
       const allPaths = assemblies.map(a => a.filePath);
@@ -183,6 +199,63 @@ export function showInstallationsPanel() {
         updated = current.filter(p => p !== filePath);
       }
       await cfg.update('enabledAssemblies', updated, vscode.ConfigurationTarget.Global);
+
+    } else if (msg.type === 'changeWorkspacesDir') {
+      const oldDir: string = (msg.oldDir || '').replace(/^~(?=\/|$)/, os.homedir());
+      const newDirRaw: string = msg.newDir || '';
+      const newDir = newDirRaw.replace(/^~(?=\/|$)/, os.homedir());
+      const existingFiles: string[] = msg.existingFiles || [];
+
+      if (!newDir) {
+        vscode.window.showWarningMessage('UPP: Workspace directory cannot be empty.');
+        return;
+      }
+
+      // Ensure new directory exists
+      if (!fs.existsSync(newDir)) {
+        fs.mkdirSync(newDir, { recursive: true });
+      }
+
+      // If there are existing files in the old directory, offer to copy/move
+      if (existingFiles.length > 0 && oldDir && oldDir !== newDir && fs.existsSync(oldDir)) {
+        const choice = await vscode.window.showInformationMessage(
+          `UPP: ${existingFiles.length} workspace file(s) exist in the old location. What should happen to them?`,
+          'Move', 'Copy', 'Leave'
+        );
+
+        if (choice === 'Move' || choice === 'Copy') {
+          let moved = 0;
+          for (const f of existingFiles) {
+            const src = path.join(oldDir, f);
+            const dst = path.join(newDir, f);
+            try {
+              if (choice === 'Move') {
+                fs.renameSync(src, dst);
+              } else {
+                fs.copyFileSync(src, dst);
+              }
+              moved++;
+            } catch (err: any) {
+              console.warn(`UPP: Failed to ${choice.toLowerCase()} ${f}: ${err.message}`);
+            }
+          }
+          vscode.window.showInformationMessage(`UPP: ${choice === 'Move' ? 'Moved' : 'Copied'} ${moved}/${existingFiles.length} workspace file(s).`);
+        }
+      }
+
+      // Save the new directory
+      await cfg.update('workspacesDir', newDirRaw, vscode.ConfigurationTarget.Global);
+
+      // Refresh the workspace list
+      let newFiles: string[] = [];
+      if (fs.existsSync(newDir)) {
+        try {
+          newFiles = fs.readdirSync(newDir)
+            .filter(f => f.endsWith('.code-workspace'))
+            .sort();
+        } catch { /* ignore */ }
+      }
+      panel.webview.postMessage({ type: 'workspacesDirUpdated', dir: newDirRaw, files: newFiles });
     }
   });
 }
@@ -191,11 +264,12 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDirs: string[], enabledAssemblies: string[], isWindows: boolean): string {
+function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDirs: string[], enabledAssemblies: string[], isWindows: boolean, workspacesDir: string, workspaceFiles: string[]): string {
   const pathsJson = JSON.stringify(paths);
   const manualJson = JSON.stringify(manual);
   const scanDirsJson = JSON.stringify(scanDirs);
   const enabledJson = JSON.stringify(enabledAssemblies);
+  const workspaceFilesJson = JSON.stringify(workspaceFiles);
 
   return `<!DOCTYPE html>
 <html>
@@ -370,6 +444,15 @@ function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDir
 
   <button class="btn-scan" id="btnVarScan">Scan for .var Files</button>
 
+  <div class="section">Workspaces</div>
+  <div class="field">
+    <label for="workspacesDirInput">Workspace Directory</label>
+    <input type="text" id="workspacesDirInput" value="${esc(workspacesDir)}" />
+    <div class="hint">Directory where .code-workspace files are stored. The ~ prefix is expanded to the home directory automatically.</div>
+  </div>
+  <div id="workspaces_list" class="list-container" style="margin-top:8px"></div>
+  <div id="workspaces_empty" style="font-size:0.85em;opacity:0.5;margin-top:4px;display:${workspaceFiles.length === 0 ? 'block' : 'none'}">No workspace files found.</div>
+
   <div class="buttons">
     <button class="btn-cancel" id="btnCancel">Cancel</button>
     <button class="btn-save" id="btnSave">Save</button>
@@ -385,6 +468,8 @@ function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDir
     let FOUND = [];
     let VARSCAN_DIRS = ${scanDirsJson};
     let VARSCAN_RESULTS = [];
+    let WORKSPACE_FILES = ${workspaceFilesJson};
+    let WORKSPACES_DIR = ${JSON.stringify(workspacesDir)};
     let scanningActive = false;
     let dirProgress = {};
 
@@ -654,6 +739,11 @@ function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDir
       } else if (msg.type === 'varscanResult') {
         VARSCAN_RESULTS = msg.assemblies || [];
         renderVarScanResults();
+      } else if (msg.type === 'workspacesDirUpdated') {
+        WORKSPACES_DIR = msg.dir;
+        WORKSPACE_FILES = msg.files || [];
+        document.getElementById('workspacesDirInput').value = msg.dir;
+        renderWorkspaces();
       }
     });
 
@@ -661,6 +751,34 @@ function buildHtml(paths: string[], glob: string, manual: ManualEntry[], scanDir
     renderManual();
     renderVarScanDirs();
     renderVarScanResults();
+    renderWorkspaces();
+
+    function renderWorkspaces() {
+      const container = document.getElementById('workspaces_list');
+      const emptyEl = document.getElementById('workspaces_empty');
+      container.innerHTML = '';
+      if (WORKSPACE_FILES.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      WORKSPACE_FILES.forEach((f) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = '<span class="item-text">' + escapeHtml(f) + '</span>';
+        container.appendChild(div);
+      });
+    }
+
+    function onWorkspacesDirChange() {
+      const newDir = document.getElementById('workspacesDirInput').value.trim();
+      if (!newDir) return;
+      const oldDir = WORKSPACES_DIR;
+      if (newDir === oldDir) return;
+      vscode.postMessage({ type: 'changeWorkspacesDir', oldDir: oldDir, newDir: newDir, existingFiles: WORKSPACE_FILES });
+    }
+
+    document.getElementById('workspacesDirInput').addEventListener('change', onWorkspacesDirChange);
     } catch(e) {
       document.body.innerHTML = '<div style="padding:20px;color:var(--vscode-errorForeground);font-size:16px;">Script error: ' + e.message + ' | ' + e.stack + '</div>';
     }

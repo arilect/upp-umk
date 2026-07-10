@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { findAssemblies, parseMainConfigs } from './assemblyParser';
 import {
   activeAssembly, activeMainPackage, activeInstallation,
@@ -17,18 +18,23 @@ import { showNewPackagePanel } from './newPackagePanel';
 import { showNewAssemblyPanel } from './newAssemblyPanel';
 import { showSelectPackagePanel } from './selectPackagePanel';
 
+function normPath(p: string): string {
+  return p.replace(/^~(?=\/|$)/, os.homedir()).replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
 // ─── Assembly / Package Selection (TheIDE-style panel) ────────────────────────
 
 export async function selectAssembly() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const varDir: string = cfg.get('varDir', '');
   const enabledAssemblies = cfg.get<string[]>('enabledAssemblies', []);
-  const allAssemblies = activeInstallation?.assemblies?.length
-    ? activeInstallation.assemblies
-    : findAssemblies(varDir);
+  const baseAssemblies = activeInstallation?.assemblies ?? [];
+  const extraAssemblies = findAssemblies(varDir);
+  const seen = new Set(baseAssemblies.map(a => a.filePath));
+  const allAssemblies = [...baseAssemblies, ...extraAssemblies.filter(a => !seen.has(a.filePath))];
 
   const assemblies = enabledAssemblies.length > 0
-    ? allAssemblies.filter(a => enabledAssemblies.includes(a.filePath))
+    ? allAssemblies.filter(a => enabledAssemblies.some(e => normPath(e) === normPath(a.filePath)))
     : allAssemblies;
 
   if (assemblies.length === 0) {
@@ -73,12 +79,13 @@ export async function selectPackage() {
   const cfg = vscode.workspace.getConfiguration('upp');
   const varDir: string = cfg.get('varDir', '');
   const enabledAssemblies = cfg.get<string[]>('enabledAssemblies', []);
-  const allAssemblies = activeInstallation?.assemblies?.length
-    ? activeInstallation.assemblies
-    : findAssemblies(varDir);
+  const baseAssemblies = activeInstallation?.assemblies ?? [];
+  const extraAssemblies = findAssemblies(varDir);
+  const seen = new Set(baseAssemblies.map(a => a.filePath));
+  const allAssemblies = [...baseAssemblies, ...extraAssemblies.filter(a => !seen.has(a.filePath))];
 
   const assemblies = enabledAssemblies.length > 0
-    ? allAssemblies.filter(a => enabledAssemblies.includes(a.filePath))
+    ? allAssemblies.filter(a => enabledAssemblies.some(e => normPath(e) === normPath(a.filePath)))
     : allAssemblies;
 
   if (assemblies.length === 0) {
