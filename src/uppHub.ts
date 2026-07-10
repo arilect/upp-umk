@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { execFile } from 'child_process';
-import { Assembly, parseAssembly, setAssemblyUpHub, addNestToAssembly, removeNestFromAssembly } from './assemblyParser';
+import { Assembly, parseAssembly, setAssemblyUpHub, addNestToAssembly, removeNestFromAssembly, getDefaultVarDirs } from './assemblyParser';
+import { activeInstallation } from './state';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -54,10 +56,7 @@ export async function fetchCatalog(url?: string): Promise<UppHubCatalog> {
 
 export function getHubDir(assembly?: Assembly): string | undefined {
   if (assembly?.uppHub) return assembly.uppHub;
-  if (assembly?.filePath) {
-    return path.join(path.dirname(assembly.filePath), 'UppHub');
-  }
-  return undefined;
+  return path.join(os.homedir(), 'upp', 'UppHub');
 }
 
 export function ensureHubDir(hubDir: string): void {
@@ -310,4 +309,109 @@ export function addHubToAssemblyNests(assembly: Assembly, hubDir: string): void 
  */
 export function removeHubFromAssemblyNests(assembly: Assembly, hubDir: string): void {
   removeNestFromAssembly(assembly.filePath, hubDir);
+}
+
+// ─── Auto-create UppHub assembly ─────────────────────────────────────────────
+
+/**
+ * Ensure the UppHub.var assembly file exists at the default var directory.
+ * Creates the .var file and the source tree directory if missing.
+ * Returns the parsed Assembly object.
+ *
+ * The generated UPP line always includes:
+ *   1. hubDir (UppHub nests)
+ *   2. uppsrc (the U++ standard library source, found from the active installation)
+ *
+ * OUTPUT defaults to ~/.cache/upp.out if no other source is available.
+ */
+export function ensureUppHubAssembly(): Assembly {
+  const varDirs = getDefaultVarDirs();
+  const varDir = varDirs[0]; // e.g. ~/.config/u++/theide
+  const varPath = path.join(varDir, 'UppHub.var');
+  const hubDir = path.join(os.homedir(), 'upp', 'UppHub');
+
+  // Find uppsrc from the active installation or by scanning common locations
+  let uppsrc = '';
+  if (activeInstallation?.path && fs.existsSync(path.join(activeInstallation.path, 'uppsrc'))) {
+    uppsrc = path.join(activeInstallation.path, 'uppsrc');
+  } else {
+    const candidates = [
+      path.join(os.homedir(), 'upp-stable'),
+      path.join(os.homedir(), 'upp'),
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(path.join(candidate, 'uppsrc'))) {
+        uppsrc = path.join(candidate, 'uppsrc');
+        break;
+      }
+    }
+  }
+
+  const outputDir = path.join(os.homedir(), '.cache', 'upp.out');
+
+  // Ensure source tree directory exists
+  if (!fs.existsSync(hubDir)) {
+    fs.mkdirSync(hubDir, { recursive: true });
+  }
+
+  // Create .var file if missing
+  if (!fs.existsSync(varPath)) {
+    if (!fs.existsSync(varDir)) {
+      fs.mkdirSync(varDir, { recursive: true });
+    }
+    const uppParts = uppsrc ? [hubDir, uppsrc] : [hubDir];
+    const content = `UPP = "${uppParts.join(';')};";\nOUTPUT = "${outputDir}";\nUPPHUB = "${hubDir}";\n`;
+    fs.writeFileSync(varPath, content, 'utf8');
+  } else {
+    // Patch existing .var: ensure uppsrc is in UPP and OUTPUT is not empty
+    patchAssembly(varPath, hubDir, uppsrc, outputDir);
+  }
+
+  return parseAssembly(varPath);
+}
+
+/**
+ * Patch an existing .var file to ensure it has uppsrc in UPP and a non-empty OUTPUT.
+ */
+function patchAssembly(varPath: string, hubDir: string, uppsrc: string, outputDir: string): void {
+  let content = fs.readFileSync(varPath, 'utf8');
+  let changed = false;
+
+  // Ensure OUTPUT is not empty
+  if (/OUTPUT\s*=\s*""\s*;/.test(content) && outputDir) {
+    content = content.replace(/OUTPUT\s*=\s*""\s*;/, `OUTPUT = "${outputDir}";`);
+    changed = true;
+  }
+
+  // Ensure uppsrc is in the UPP list
+  if (uppsrc) {
+    const uppMatch = content.match(/UPP\s*=\s*"([^"]*)"\s*;/);
+    if (uppMatch) {
+      const parts = uppMatch[1].split(';').filter(Boolean);
+      const normalizedUp = uppsrc.replace(/\/+$/, '');
+      const hasUp = parts.some(p => p.replace(/\/+$/, '') === normalizedUp);
+      if (!hasUp) {
+        parts.push(uppsrc);
+        content = content.replace(
+          /UPP\s*=\s*"[^"]*"\s*;/,
+          `UPP = "${parts.join(';')}";`
+        );
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    fs.writeFileSync(varPath, content, 'utf8');
+  }
+}
+
+/**
+ * Add the hub directory to an assembly's UPP nest list if not already present.
+ */
+export function ensureHubInAssemblyNests(assembly: Assembly, hubDir: string): void {
+  if (!assembly.nests.includes(hubDir)) {
+    addNestToAssembly(assembly.filePath, hubDir);
+    assembly.nests.push(hubDir);
+  }
 }

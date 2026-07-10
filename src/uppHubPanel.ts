@@ -7,12 +7,18 @@ import {
   getHubDir, isInstalled, getInstalledNests,
   uninstallNest, updateNest, updateAll,
   installWithDeps, syncAssemblyUpHub, ensureHubDir,
+  ensureUppHubAssembly, ensureHubInAssemblyNests,
 } from './uppHub';
 
 let currentPanel: vscode.WebviewPanel | undefined;
 let catalog: UppHubCatalog | undefined;
 
 export function showUppHubPanel(assembly?: Assembly) {
+  // If no assembly selected, auto-create the UppHub assembly
+  if (!assembly) {
+    assembly = ensureUppHubAssembly();
+  }
+
   if (currentPanel) {
     currentPanel.reveal(vscode.ViewColumn.One);
     if (assembly) currentPanel.webview.postMessage({ type: 'setAssembly', assembly: serializeAssembly(assembly) });
@@ -38,9 +44,14 @@ export function showUppHubPanel(assembly?: Assembly) {
         const nest = msg.nest as UppHubNest;
         const hubDir = msg.hubDir as string;
         ensureHubDir(hubDir);
+        ensureUppHubAssembly();
         try {
           await installWithDeps(nest, catalog!, hubDir, outputChannel);
-          if (assembly) syncAssemblyUpHub(assembly, hubDir);
+          if (assembly) {
+            syncAssemblyUpHub(assembly, hubDir);
+            assembly.uppHub = hubDir;
+            ensureHubInAssemblyNests(assembly, hubDir);
+          }
           refreshPanel(currentPanel!, assembly, outputChannel);
         } catch (err: any) {
           vscode.window.showErrorMessage(`UPP: Install failed: ${err.message}`);
@@ -52,7 +63,7 @@ export function showUppHubPanel(assembly?: Assembly) {
         const hubDir = msg.hubDir as string;
         try {
           await uninstallNest(hubDir, name, outputChannel);
-          if (assembly) syncAssemblyUpHub(assembly, hubDir);
+          if (assembly) { syncAssemblyUpHub(assembly, hubDir); assembly.uppHub = hubDir; }
           refreshPanel(currentPanel!, assembly, outputChannel);
         } catch (err: any) {
           vscode.window.showErrorMessage(`UPP: Uninstall failed: ${err.message}`);
@@ -84,6 +95,7 @@ export function showUppHubPanel(assembly?: Assembly) {
         const hubDir = msg.hubDir as string;
         const names = msg.names as string[];
         ensureHubDir(hubDir);
+        ensureUppHubAssembly();
         try {
           for (const name of names) {
             const nest = catalog!.nests.find(n => n.name === name);
@@ -91,7 +103,11 @@ export function showUppHubPanel(assembly?: Assembly) {
               await installWithDeps(nest, catalog!, hubDir, outputChannel);
             }
           }
-          if (assembly) syncAssemblyUpHub(assembly, hubDir);
+          if (assembly) {
+            syncAssemblyUpHub(assembly, hubDir);
+            assembly.uppHub = hubDir;
+            ensureHubInAssemblyNests(assembly, hubDir);
+          }
           refreshPanel(currentPanel!, assembly, outputChannel);
         } catch (err: any) {
           vscode.window.showErrorMessage(`UPP: Install all failed: ${err.message}`);

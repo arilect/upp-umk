@@ -45,6 +45,26 @@ export function showNewAssemblyPanel(
         return;
       }
 
+      // Ensure uppsrc is in the nest list (as second entry)
+      let uppsrc = '';
+      const candidates = [
+        path.join(os.homedir(), 'upp-stable'),
+        path.join(os.homedir(), 'upp'),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(path.join(candidate, 'uppsrc'))) {
+          uppsrc = path.join(candidate, 'uppsrc');
+          break;
+        }
+      }
+      if (uppsrc) {
+        const normalizedUp = uppsrc.replace(/\\/g, '/').replace(/\/+$/, '');
+        const hasUp = nestList.some(n => n.replace(/\\/g, '/').replace(/\/+$/, '') === normalizedUp);
+        if (!hasUp) {
+          nestList.splice(1, 0, uppsrc);
+        }
+      }
+
       // Resolve .var file path
       const cfg = vscode.workspace.getConfiguration('upp');
       const varDir: string = cfg.get('varDir', '') || getDefaultVarDirs()[0];
